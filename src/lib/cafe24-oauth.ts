@@ -31,14 +31,19 @@ export class Cafe24OAuth {
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       scope: [
-        'mall.read_product',
-        'mall.write_coupon', 
-        'mall.write_point',
-        'mall.read_order',
-        'mall.write_scripttag',
-        'mall.read_board',
-        'mall.write_board'
-      ].join(','),
+  'mall.read_application',       // 앱 정보 (자동 부여)
+  'mall.write_application',      // 앱 관리 (자동 부여)
+  'mall.read_product',           // 상품 읽기
+  'mall.read_order',             // 주문 읽기  
+  'mall.read_community',         // 게시판 읽기
+  'mall.write_community',        // 게시판 쓰기
+  'mall.read_customer',          // 회원 읽기
+  'mall.write_customer',         // 회원 쓰기 (적립금)
+  'mall.read_promotion',         // 프로모션 읽기
+  'mall.write_promotion',        // 프로모션 쓰기 (쿠폰)
+  'mall.read_design',            // 디자인 읽기
+  'mall.write_design'            // 디자인 쓰기 (스크립트)
+].join(','),
       state: authState
     });
     
