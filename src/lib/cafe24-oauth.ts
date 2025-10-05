@@ -23,21 +23,31 @@ export class Cafe24OAuth {
 
   // 1단계: Authorization URL 생성
   getAuthUrl(mallId: string, state?: string): string {
-    const authState = state || this.generateState();
-    
-    const authUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/authorize`;
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: this.clientId,
-      redirect_uri: this.redirectUri,
-      scope: [
-  'mall.read_product'            // 상품 읽기만 우선 테스트
-].join(','),
-      state: authState
-    });
-    
-    return `${authUrl}?${params.toString()}`;
-  }
+  const authState = state || this.generateState();
+  
+  const authUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/authorize`;
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: this.clientId,
+    redirect_uri: this.redirectUri,
+    scope: [
+      'mall.read_product',           // 상품 읽기
+      'mall.read_order',             // 주문 읽기  
+      'mall.read_community',         // 게시판 읽기
+      'mall.write_community',        // 게시판 쓰기
+      'mall.read_customer',          // 회원 읽기
+      'mall.write_customer',         // 회원 쓰기 (적립금)
+      'mall.read_promotion',         // 프로모션 읽기
+      'mall.write_promotion',        // 프로모션 쓰기 (쿠폰)
+      'mall.read_design',            // 디자인 읽기
+      'mall.write_design'            // 디자인 쓰기 (스크립트)
+    ].join(','),
+    state: authState
+  });
+  
+  return `${authUrl}?${params.toString()}`;
+}
+
 
   // 2단계: Authorization Code → Access Token
   async getAccessToken(mallId: string, code: string): Promise<TokenResponse> {
