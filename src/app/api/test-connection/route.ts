@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2022-06-01'
+        'X-Cafe24-Api-Version': '2025-09-01', // 🔥 업데이트된 API 버전
       },
     });
 
@@ -69,9 +69,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Cafe24 API 연결이 성공했습니다!',
+      message: '✅ Cafe24 OAuth 연동이 완전히 성공했습니다!',
       mall_id: mallId,
+      api_version: '2025-09-01',
       products_count: data.products?.length || 0,
+      token_status: 'Active',
+      oauth_status: 'Complete',
       api_response: {
         status: response.status,
         products: data.products?.slice(0, 3) || [] // 처음 3개 상품만 반환
