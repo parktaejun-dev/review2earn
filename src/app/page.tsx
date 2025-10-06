@@ -10,7 +10,6 @@ export default function Home() {
   const [configValid, setConfigValid] = useState<boolean>(false);
 
   useEffect(() => {
-    // 클라이언트 환경변수 검증
     const isValid = validateClientConfig();
     setConfigValid(isValid);
   }, []);
@@ -43,18 +42,11 @@ export default function Home() {
       const redirectUri = `${clientConfig.baseUrl}/api/oauth/callback`;
       const state = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      // 최소 권한 스코프로 수정
       const scopes = [
         'mall.read_product',
-        'mall.read_category', 
-        'mall.read_promotion',
-        'mall.write_promotion',
-        'mall.read_customer',
-        'mall.write_customer',
-        'mall.read_order',
-        'mall.read_community',
-        'mall.write_community',
-        'mall.read_design',
-        'mall.write_design'
+        'mall.read_category',
+        'mall.read_order'
       ];
 
       const params = new URLSearchParams({
@@ -71,7 +63,6 @@ export default function Home() {
       console.log('🎯 Redirect URI:', redirectUri);
       console.log('🎯 State:', state);
       
-      // OAuth 페이지로 이동
       window.location.href = authUrl;
       
     } catch (error) {
@@ -81,7 +72,6 @@ export default function Home() {
     }
   };
 
-  // 🚀 dhdshop 바로 연동 함수 수정
   const handleQuickConnect = () => {
     if (!configValid) {
       alert('환경변수가 올바르게 설정되지 않았습니다. 관리자에게 문의하세요.');
@@ -92,7 +82,7 @@ export default function Home() {
     
     try {
       const clientId = clientConfig.cafe24ClientId;
-      const quickMallId = 'dhdshop'; // 직접 하드코딩
+      const quickMallId = 'dhdshop';
       
       if (!clientId) {
         throw new Error('NEXT_PUBLIC_CAFE24_CLIENT_ID is not configured');
@@ -106,18 +96,11 @@ export default function Home() {
       const redirectUri = `${clientConfig.baseUrl}/api/oauth/callback`;
       const state = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      // 최소 권한 스코프로 수정
       const scopes = [
         'mall.read_product',
-        'mall.read_category', 
-        'mall.read_promotion',
-        'mall.write_promotion',
-        'mall.read_customer',
-        'mall.write_customer',
-        'mall.read_order',
-        'mall.read_community',
-        'mall.write_community',
-        'mall.read_design',
-        'mall.write_design'
+        'mall.read_category',
+        'mall.read_order'
       ];
 
       const params = new URLSearchParams({
@@ -134,7 +117,6 @@ export default function Home() {
       console.log('🎯 Quick Connect - Redirect URI:', redirectUri);
       console.log('🎯 Quick Connect - State:', state);
       
-      // OAuth 페이지로 이동
       window.location.href = authUrl;
       
     } catch (error) {
@@ -177,7 +159,6 @@ export default function Home() {
             리뷰 기반 추천 구매 시스템 - 리뷰어는 적립금을, 구매자는 할인을!
           </p>
           
-          {/* 환경변수 상태 경고 */}
           {!configValid && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
               <div className="flex">
@@ -196,11 +177,9 @@ export default function Home() {
             </div>
           )}
           
-          {/* OAuth 테스트 섹션 */}
           <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
             <h2 className="text-2xl font-semibold mb-4">카페24 연동 테스트</h2>
             
-            {/* Mall ID 입력 폼 */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 카페24 쇼핑몰 ID 입력:
@@ -223,19 +202,17 @@ export default function Home() {
                 </button>
               </div>
               
-              {/* 빠른 연동 버튼 - 수정된 부분 */}
               <div className="mt-3">
                 <button
                   onClick={handleQuickConnect}
                   disabled={isLoading || !configValid}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  🚀 dhdshop 바로 연동
+                  🚀 dhdshop 바로 연동 (최소 권한)
                 </button>
               </div>
             </div>
             
-            {/* API 테스트 버튼 */}
             <div className="mt-4">
               <button
                 onClick={handleApiTest}
@@ -246,14 +223,12 @@ export default function Home() {
               </button>
             </div>
             
-            {/* 환경변수 상태 표시 */}
             <div className="mt-4 text-sm text-gray-500">
               <p>Client ID: {configValid ? '✅ 설정됨' : '❌ 미설정'}</p>
               <p>Base URL: {clientConfig.baseUrl || 'undefined'}</p>
               <p>Environment: {process.env.NODE_ENV}</p>
             </div>
             
-            {/* 테스트 결과 표시 */}
             {testResult && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2">테스트 결과:</h3>
@@ -264,7 +239,6 @@ export default function Home() {
             )}
           </div>
           
-          {/* 기능 설명 */}
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-lg font-semibold mb-2">💰 리뷰어 혜택</h3>
