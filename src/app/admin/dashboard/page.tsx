@@ -28,6 +28,7 @@ export default function Dashboard() {
       setMallId(cookieMallId);
       setIsConnected(true);
       checkScriptStatus();
+      // ⭐ 자동 API 테스트 제거 - 사용자가 수동으로만 실행
     }
   }, []);
 
@@ -50,24 +51,35 @@ export default function Dashboard() {
     }
   };
 
-  /// API 테스트 함수 - 경로 수정
-const handleApiTest = async () => {
-  try {
-    const response = await fetch('/api/test-connection', {  // ← 이 경로 유지
-      method: 'POST'
-    });
-    
-    const result = await response.json();
-    setApiTestResult(result);
-  } catch (error) {
-    console.error('API 테스트 오류:', error);
-    setApiTestResult({
-      success: false,
-      message: 'API 테스트 중 오류가 발생했습니다'
-    });
-  }
-};
+  // ⭐ API 테스트 함수 - 경로 수정
+  const handleApiTest = async () => {
+    try {
+      setApiTestResult(null); // 이전 결과 초기화
+      
+      const response = await fetch('/api/test-connection', {  // ✅ 올바른 경로
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      setApiTestResult(result);
+    } catch (error) {
+      console.error('API 테스트 오류:', error);
+      setApiTestResult({
+        success: false,
+        message: 'API 테스트 중 오류가 발생했습니다'
+      });
+    }
+  };
 
+  // 재연결 함수 추가
+  const handleReconnect = () => {
+    // 쿠키 삭제 후 재연결
+    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'cafe24_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
+    window.location.href = '/';
+  };
 
   // 스크립트 설치 함수
   const handleInstallScript = async () => {
@@ -119,15 +131,7 @@ const handleApiTest = async () => {
       setScriptMessage('스크립트 제거 중 오류가 발생했습니다');
     }
   };
-// 기존의 handleLogout 함수 위에 추가
-const handleReconnect = () => {
-  // 쿠키 삭제 후 재연결
-  document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  document.cookie = 'cafe24_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  
-  window.location.href = '/';
-};
+
   const handleLogout = () => {
     // 쿠키 삭제
     document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -174,21 +178,21 @@ const handleReconnect = () => {
                 {mallId}
               </span>
             </div>
+            {/* ⭐ 버튼 2개로 수정 */}
             <div className="flex gap-2">
-  <button
-    onClick={handleReconnect}
-    className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-  >
-    다시 연결하기
-  </button>
-  <button
-    onClick={handleLogout}
-    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-  >
-    로그아웃
-  </button>
-</div>
-
+              <button
+                onClick={handleReconnect}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                다시 연결하기
+              </button>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                로그아웃
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -207,6 +211,23 @@ const handleReconnect = () => {
               <h3 className="text-sm font-medium">✅ 카페24 연동 성공!</h3>
               <div className="mt-2 text-sm">
                 <p>쇼핑몰 {mallId}과 성공적으로 연결되었습니다.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 토큰 만료 경고 추가 */}
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium">⚠️ 토큰 만료 가능성</h3>
+              <div className="mt-2 text-sm">
+                <p>API 호출 시 토큰이 만료되면 자동으로 갱신됩니다. 실패 시 &quot;다시 연결하기&quot; 버튼을 사용해주세요.</p>
               </div>
             </div>
           </div>
