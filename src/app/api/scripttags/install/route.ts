@@ -2,9 +2,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Cafe24ScriptTags } from '@/lib/cafe24-scripttags';
 
+interface ScriptTag {
+  src?: string;
+  script_no?: number;
+}
+
+interface ScriptTagsResponse {
+  scripttags?: ScriptTag[];
+  scripttag?: ScriptTag;
+}
+
 export async function POST(request: NextRequest) {
     try {
-        // 쿠키에서 인증 정보 추출
         const accessToken = request.cookies.get('cafe24_access_token')?.value;
         const mallId = request.cookies.get('cafe24_mall_id')?.value;
 
@@ -15,15 +24,12 @@ export async function POST(request: NextRequest) {
             }, { status: 401 });
         }
 
-        // ScriptTags API 호출
         const scriptTags = new Cafe24ScriptTags();
         
-        // 기존 스크립트 확인
-        const existingScripts = await scriptTags.getScriptTags(mallId, accessToken);
+        const existingScripts: ScriptTagsResponse = await scriptTags.getScriptTags(mallId, accessToken);
         
-        // 이미 설치된 스크립트가 있는지 확인
         const isAlreadyInstalled = existingScripts.scripttags?.some(
-            (script: any) => script.src?.includes('review-button.js')
+            (script) => script.src?.includes('review-button.js')
         );
 
         if (isAlreadyInstalled) {
@@ -34,8 +40,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 새 스크립트 설치
-        const result = await scriptTags.createScriptTag(mallId, accessToken);
+        const result: ScriptTagsResponse = await scriptTags.createScriptTag(mallId, accessToken);
 
         if (result.scripttag) {
             return NextResponse.json({

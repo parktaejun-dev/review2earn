@@ -2,6 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Cafe24ScriptTags } from '@/lib/cafe24-scripttags';
 
+interface ScriptTag {
+  src?: string;
+  script_no?: number;
+}
+
+interface ScriptTagsResponse {
+  scripttags?: ScriptTag[];
+}
+
 export async function DELETE(request: NextRequest) {
     try {
         const accessToken = request.cookies.get('cafe24_access_token')?.value;
@@ -16,15 +25,13 @@ export async function DELETE(request: NextRequest) {
 
         const scriptTags = new Cafe24ScriptTags();
         
-        // 기존 스크립트 조회
-        const existingScripts = await scriptTags.getScriptTags(mallId, accessToken);
+        const existingScripts: ScriptTagsResponse = await scriptTags.getScriptTags(mallId, accessToken);
         
-        // 리뷰투언 스크립트 찾기
         const reviewScript = existingScripts.scripttags?.find(
-            (script: any) => script.src?.includes('review-button.js')
+            (script) => script.src?.includes('review-button.js')
         );
 
-        if (!reviewScript) {
+        if (!reviewScript || !reviewScript.script_no) {
             return NextResponse.json({
                 success: true,
                 message: '제거할 리뷰투언 스크립트가 없습니다',
@@ -32,8 +39,7 @@ export async function DELETE(request: NextRequest) {
             });
         }
 
-        // 스크립트 제거
-        const result = await scriptTags.deleteScriptTag(mallId, accessToken, reviewScript.script_no);
+        await scriptTags.deleteScriptTag(mallId, accessToken, reviewScript.script_no);
 
         return NextResponse.json({
             success: true,

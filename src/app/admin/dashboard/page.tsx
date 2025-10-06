@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from 'react';
 
+interface ApiTestResult {
+  success: boolean;
+  message: string;
+  mall_id?: string;
+  products_count?: number;
+  sample_data?: Record<string, unknown>;
+}
+
 export default function Dashboard() {
   const [mallId, setMallId] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [apiTestResult, setApiTestResult] = useState<any>(null);
+  const [apiTestResult, setApiTestResult] = useState<ApiTestResult | null>(null);
   const [scriptStatus, setScriptStatus] = useState<'checking' | 'installed' | 'not_installed' | 'installing' | 'removing'>('checking');
   const [scriptMessage, setScriptMessage] = useState('');
 
@@ -253,7 +261,7 @@ export default function Dashboard() {
           
           <div className="mb-4">
             <p className="text-gray-600 mb-2">
-              쇼핑몰 리뷰 작성란에 "리뷰투언으로 수익받기" 버튼을 추가합니다.
+              쇼핑몰 리뷰 작성란에 &quot;리뷰투언으로 수익받기&quot; 버튼을 추가합니다.
             </p>
             
             {scriptMessage && (

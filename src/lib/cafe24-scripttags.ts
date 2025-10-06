@@ -1,6 +1,14 @@
 // 카페24 ScriptTags API 구현
 import { Cafe24OAuth } from './cafe24-oauth';
 
+interface ScriptTagData {
+  shop_no: number;
+  src: string;
+  display_location: string;
+  skin_no: number;
+  integrity: string;
+}
+
 export class Cafe24ScriptTags {
   private oauth: Cafe24OAuth;
 
@@ -18,7 +26,7 @@ export class Cafe24ScriptTags {
         src: 'https://review2earn.vercel.app/scripts/review-button.js',
         display_location: 'REVIEWWRITE',
         skin_no: 101,
-        integrity: '' // SHA-384 해시값 추가 예정
+        integrity: ''
       }
     };
 
@@ -97,7 +105,7 @@ export class Cafe24ScriptTags {
   }
 
   // 스크립트 태그 수정
-  async updateScriptTag(mallId: string, accessToken: string, scriptNo: number, updateData: any) {
+  async updateScriptTag(mallId: string, accessToken: string, scriptNo: number, updateData: Partial<ScriptTagData>) {
     const url = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags/${scriptNo}`;
     
     try {
