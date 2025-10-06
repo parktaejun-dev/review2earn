@@ -19,9 +19,7 @@ export async function GET(request: NextRequest) {
   console.log('🎯 Environment Variables Check:', {
     clientId: serverConfig.cafe24.clientId ? '[SET]' : 'MISSING',
     clientSecret: serverConfig.cafe24.clientSecret ? '[SET]' : 'MISSING',
-    baseUrl: serverConfig.cafe24.baseUrl || 'MISSING',
-    nextAuthUrl: process.env.NEXTAUTH_URL || 'MISSING',
-    nextAuthSecret: process.env.NEXTAUTH_SECRET ? '[SET]' : 'MISSING'
+    baseUrl: serverConfig.cafe24.baseUrl || 'MISSING'
   });
 
   if (error) {
@@ -52,19 +50,21 @@ export async function GET(request: NextRequest) {
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
     const redirectUri = `${serverConfig.cafe24.baseUrl}/api/oauth/callback`;
     
+    // 🔥 Authorization 헤더 방식으로 변경
     const tokenPayload = {
       grant_type: 'authorization_code',
-      client_id: serverConfig.cafe24.clientId,
-      client_secret: serverConfig.cafe24.clientSecret,
       code: code,
       redirect_uri: redirectUri,
     };
 
+    // 🔥 Basic Auth 헤더 생성
+    const credentials = Buffer.from(`${serverConfig.cafe24.clientId}:${serverConfig.cafe24.clientSecret}`).toString('base64');
+
     console.log('🎯 Token Request:', {
       url: tokenUrl,
-      client_id: tokenPayload.client_id,
-      client_secret: tokenPayload.client_secret ? '[SET]' : 'MISSING',
+      client_id: serverConfig.cafe24.clientId,
       redirect_uri: tokenPayload.redirect_uri,
+      authorization: `Basic ${credentials.substring(0, 20)}...`,
       code: '[RECEIVED]'
     });
 
@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`, // 🔥 중요: Authorization 헤더
       },
       body: new URLSearchParams(tokenPayload),
     });
@@ -83,7 +84,8 @@ export async function GET(request: NextRequest) {
       console.error('❌ Token request failed:', {
         status: tokenResponse.status,
         statusText: tokenResponse.statusText,
-        error: errorText
+        error: errorText,
+        headers: Object.fromEntries(tokenResponse.headers.entries())
       });
       
       return NextResponse.redirect(
@@ -125,6 +127,14 @@ export async function GET(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30,
+      path: '/'
+    });
+
+    response.cookies.set('cafe24_oauth_success', 'true', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60,
       path: '/'
     });
 
