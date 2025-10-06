@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function Home() {
-  const [mallId, setMallId] = useState('');
+  const [mallId, setMallId] = useState('dhdshop'); // 기본값 설정
   const [isLoading, setIsLoading] = useState(false);
   const [testResult, setTestResult] = useState<string>('');
 
@@ -14,7 +14,41 @@ export default function Home() {
     }
     
     setIsLoading(true);
-    window.location.href = `/api/oauth/authorize?mall_id=${mallId.trim()}`;
+    
+    // ⭐ 수정: 카페24 OAuth URL로 직접 이동
+    try {
+      const clientId = process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID;
+      
+      if (!clientId) {
+        alert('NEXT_PUBLIC_CAFE24_CLIENT_ID 환경변수가 설정되지 않았습니다.');
+        setIsLoading(false);
+        return;
+      }
+
+      const baseUrl = `https://${mallId.trim()}.cafe24api.com/api/v2/oauth/authorize`;
+      const redirectUri = `${window.location.origin}/api/oauth/callback`;
+      const state = Math.random().toString(36);
+      
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        state,
+        redirect_uri: redirectUri,
+        scope: 'mall.read_product,mall.read_category,mall.read_promotion,mall.write_promotion,mall.read_customer,mall.write_customer,mall.read_order,mall.read_community,mall.write_community,mall.read_design,mall.write_design'
+      });
+      
+      const authUrl = `${baseUrl}?${params.toString()}`;
+      
+      console.log('🎯 OAuth URL:', authUrl);
+      console.log('🎯 Client ID:', clientId);
+      
+      window.location.href = authUrl;
+      
+    } catch (error) {
+      console.error('OAuth 연결 오류:', error);
+      alert('OAuth 연결 중 오류가 발생했습니다.');
+      setIsLoading(false);
+    }
   };
 
   const handleApiTest = async () => {
@@ -22,7 +56,10 @@ export default function Home() {
     setTestResult('API 테스트 중...');
     
     try {
-      const response = await fetch('/api/cafe24/test');
+      // ⭐ 수정: 올바른 API 경로
+      const response = await fetch('/api/test-connection', {
+        method: 'POST'
+      });
       const data = await response.json();
       setTestResult(JSON.stringify(data, null, 2));
     } catch (error) {
@@ -70,6 +107,20 @@ export default function Home() {
                   {isLoading ? '연동 중...' : '카페24 연동하기'}
                 </button>
               </div>
+              
+              {/* ⭐ 추가: 빠른 연동 버튼 */}
+              <div className="mt-3">
+                <button
+                  onClick={() => {
+                    setMallId('dhdshop');
+                    setTimeout(() => handleOAuthLogin(), 100);
+                  }}
+                  disabled={isLoading}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  🚀 dhdshop 바로 연동
+                </button>
+              </div>
             </div>
             
             {/* API 테스트 버튼 */}
@@ -77,10 +128,15 @@ export default function Home() {
               <button
                 onClick={handleApiTest}
                 disabled={isLoading}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? '테스트 중...' : 'API 연결 테스트'}
               </button>
+            </div>
+            
+            {/* 환경변수 확인 */}
+            <div className="mt-4 text-sm text-gray-500">
+              <p>Client ID: {process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID ? '✅ 설정됨' : '❌ 미설정'}</p>
             </div>
             
             {/* 테스트 결과 표시 */}

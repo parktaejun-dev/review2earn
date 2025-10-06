@@ -15,12 +15,13 @@ export class Cafe24OAuth {
   private redirectUri: string;
 
   constructor() {
-    this.clientId = process.env.CAFE24_CLIENT_ID!;
+    this.clientId = process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID!;
     this.clientSecret = process.env.CAFE24_CLIENT_SECRET!;
     this.baseUrl = process.env.NEXTAUTH_URL!;
     this.redirectUri = `${this.baseUrl}/api/oauth/callback`;
   }
 
+  
   // 1단계: Authorization URL 생성
   getAuthUrl(mallId: string, state?: string): string {
   const authState = state || this.generateState();
@@ -131,3 +132,4 @@ export class Cafe24OAuth {
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
 }
+
