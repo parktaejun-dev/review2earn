@@ -1,4 +1,4 @@
-// src/app/api/scripttags/route.ts
+// src/app/api/scripttags/route.ts - 올바른 Review2Earn 버전
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -13,21 +13,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`🚀 ScriptTags API 호출 시작 - Mall: ${mallId}`);
+    console.log(`🚀 Review2Earn ScriptTags API 호출 시작 - Mall: ${mallId}`);
 
-    // 카페24 ScriptTags API 호출
+    // 카페24 ScriptTags API 호출 - 리뷰 목록 페이지에 삽입
     const apiUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     
     const scriptTagData = {
       "shop_no": 1,
       "request": {
-        "src": "https://cdn.jsdelivr.net/gh/parktaejun-dev/review2earn-cafe24-app@main/public/review-button.js",
-        "display_location": "REVIEW_WRITE",
+        "src": "https://cdn.jsdelivr.net/gh/parktaejun-dev/review2earn-cafe24-app@main/public/review-earn-button.js",
+        "display_location": "PRODUCT_DETAIL", // 상품 상세 페이지의 리뷰 영역
         "skin_no": 101
       }
     };
 
-    console.log('📤 ScriptTag 등록 데이터:', JSON.stringify(scriptTagData, null, 2));
+    console.log('📤 Review2Earn ScriptTag 등록 데이터:', JSON.stringify(scriptTagData, null, 2));
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
     if (response.ok) {
       return NextResponse.json({
         success: true,
-        message: '✅ ScriptTag가 성공적으로 등록되었습니다!',
+        message: '✅ Review2Earn ScriptTag가 성공적으로 등록되었습니다!',
         data: responseData,
-        scriptLocation: 'REVIEW_WRITE - 상품후기 글쓰기 페이지',
-        nextStep: '이제 dhdshop.cafe24.com에서 리뷰 작성을 시도해보세요!'
+        scriptLocation: 'PRODUCT_DETAIL - 상품 상세 페이지 리뷰 영역',
+        nextStep: '이제 dhdshop.cafe24.com의 상품 페이지에서 리뷰 영역을 확인해보세요!',
+        buttonFunction: '각 리뷰 옆에 "👍 도움됨+1%할인" 버튼이 나타납니다'
       });
     } else {
       return NextResponse.json({
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
     if (response.ok) {
       return NextResponse.json({
         success: true,
-        message: '등록된 ScriptTag 목록을 가져왔습니다.',
+        message: '등록된 Review2Earn ScriptTag 목록을 가져왔습니다.',
         data: responseData
       });
     } else {
