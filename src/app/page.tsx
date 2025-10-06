@@ -42,11 +42,9 @@ export default function Home() {
       const redirectUri = `${clientConfig.baseUrl}/api/oauth/callback`;
       const state = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // 최소 권한 스코프로 수정
+      // 🔥 가장 기본적인 단일 스코프
       const scopes = [
-        'mall.read_product',
-        'mall.read_category',
-        'mall.read_order'
+        'mall.read_product'
       ];
 
       const params = new URLSearchParams({
@@ -96,11 +94,9 @@ export default function Home() {
       const redirectUri = `${clientConfig.baseUrl}/api/oauth/callback`;
       const state = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // 최소 권한 스코프로 수정
+      // 🔥 가장 기본적인 단일 스코프
       const scopes = [
-        'mall.read_product',
-        'mall.read_category',
-        'mall.read_order'
+        'mall.read_product'
       ];
 
       const params = new URLSearchParams({
@@ -208,7 +204,7 @@ export default function Home() {
                   disabled={isLoading || !configValid}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  🚀 dhdshop 바로 연동 (최소 권한)
+                  🚀 dhdshop 바로 연동 (기본 권한)
                 </button>
               </div>
             </div>
@@ -227,6 +223,7 @@ export default function Home() {
               <p>Client ID: {configValid ? '✅ 설정됨' : '❌ 미설정'}</p>
               <p>Base URL: {clientConfig.baseUrl || 'undefined'}</p>
               <p>Environment: {process.env.NODE_ENV}</p>
+              <p>Scope: mall.read_product (기본)</p>
             </div>
             
             {testResult && (
