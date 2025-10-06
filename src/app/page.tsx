@@ -81,6 +81,69 @@ export default function Home() {
     }
   };
 
+  // 🚀 dhdshop 바로 연동 함수 수정
+  const handleQuickConnect = () => {
+    if (!configValid) {
+      alert('환경변수가 올바르게 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const clientId = clientConfig.cafe24ClientId;
+      const quickMallId = 'dhdshop'; // 직접 하드코딩
+      
+      if (!clientId) {
+        throw new Error('NEXT_PUBLIC_CAFE24_CLIENT_ID is not configured');
+      }
+
+      console.log('🎯 Quick Connect - Client ID:', clientId);
+      console.log('🎯 Quick Connect - Mall ID:', quickMallId);
+      console.log('🎯 Quick Connect - Base URL:', clientConfig.baseUrl);
+
+      const baseUrl = `https://${quickMallId}.cafe24api.com/api/v2/oauth/authorize`;
+      const redirectUri = `${clientConfig.baseUrl}/api/oauth/callback`;
+      const state = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const scopes = [
+        'mall.read_product',
+        'mall.read_category', 
+        'mall.read_promotion',
+        'mall.write_promotion',
+        'mall.read_customer',
+        'mall.write_customer',
+        'mall.read_order',
+        'mall.read_community',
+        'mall.write_community',
+        'mall.read_design',
+        'mall.write_design'
+      ];
+
+      const params = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        state,
+        redirect_uri: redirectUri,
+        scope: scopes.join(',')
+      });
+      
+      const authUrl = `${baseUrl}?${params.toString()}`;
+      
+      console.log('🎯 Quick Connect - Generated OAuth URL:', authUrl);
+      console.log('🎯 Quick Connect - Redirect URI:', redirectUri);
+      console.log('🎯 Quick Connect - State:', state);
+      
+      // OAuth 페이지로 이동
+      window.location.href = authUrl;
+      
+    } catch (error) {
+      console.error('Quick Connect OAuth error:', error);
+      alert(`dhdshop 연동 중 오류가 발생했습니다:\n${(error as Error).message}`);
+      setIsLoading(false);
+    }
+  };
+
   const handleApiTest = async () => {
     setIsLoading(true);
     setTestResult('API 테스트 중...');
@@ -160,13 +223,10 @@ export default function Home() {
                 </button>
               </div>
               
-              {/* 빠른 연동 버튼 */}
+              {/* 빠른 연동 버튼 - 수정된 부분 */}
               <div className="mt-3">
                 <button
-                  onClick={() => {
-                    setMallId('dhdshop');
-                    setTimeout(() => handleOAuthLogin(), 100);
-                  }}
+                  onClick={handleQuickConnect}
                   disabled={isLoading || !configValid}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
