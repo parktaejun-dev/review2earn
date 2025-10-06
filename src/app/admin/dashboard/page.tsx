@@ -50,23 +50,24 @@ export default function Dashboard() {
     }
   };
 
-  // API 테스트 함수
-  const handleApiTest = async () => {
-    try {
-      const response = await fetch('/api/test-connection', {
-        method: 'POST'
-      });
-      
-      const result = await response.json();
-      setApiTestResult(result);
-    } catch (error) {
-      console.error('API 테스트 오류:', error);
-      setApiTestResult({
-        success: false,
-        message: 'API 테스트 중 오류가 발생했습니다'
-      });
-    }
-  };
+  /// API 테스트 함수 - 경로 수정
+const handleApiTest = async () => {
+  try {
+    const response = await fetch('/api/test-connection', {  // ← 이 경로 유지
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    setApiTestResult(result);
+  } catch (error) {
+    console.error('API 테스트 오류:', error);
+    setApiTestResult({
+      success: false,
+      message: 'API 테스트 중 오류가 발생했습니다'
+    });
+  }
+};
+
 
   // 스크립트 설치 함수
   const handleInstallScript = async () => {
@@ -118,7 +119,15 @@ export default function Dashboard() {
       setScriptMessage('스크립트 제거 중 오류가 발생했습니다');
     }
   };
-
+// 기존의 handleLogout 함수 위에 추가
+const handleReconnect = () => {
+  // 쿠키 삭제 후 재연결
+  document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  document.cookie = 'cafe24_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  
+  window.location.href = '/';
+};
   const handleLogout = () => {
     // 쿠키 삭제
     document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -165,12 +174,21 @@ export default function Dashboard() {
                 {mallId}
               </span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              로그아웃
-            </button>
+            <div className="flex gap-2">
+  <button
+    onClick={handleReconnect}
+    className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+  >
+    다시 연결하기
+  </button>
+  <button
+    onClick={handleLogout}
+    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+  >
+    로그아웃
+  </button>
+</div>
+
           </div>
         </div>
       </header>

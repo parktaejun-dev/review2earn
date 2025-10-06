@@ -35,6 +35,16 @@ export async function GET(request: NextRequest) {
       sameSite: 'lax',
       maxAge: tokenData.expires_in
     });
+
+    // ⭐ Refresh Token 저장 추가
+    if (tokenData.refresh_token) {
+      response.cookies.set('cafe24_refresh_token', tokenData.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: tokenData.expires_in * 10 // 리프레시 토큰은 더 오래 보관
+      });
+    }
     
     response.cookies.set('cafe24_mall_id', mallId, {
       httpOnly: false, // 클라이언트에서 읽을 수 있도록
