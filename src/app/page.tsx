@@ -1,52 +1,82 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { clientConfig, validateClientConfig } from '@/lib/config';
 
 export default function Home() {
-  const [mallId, setMallId] = useState('dhdshop'); // 기본값 설정
+  const [mallId, setMallId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [testResult, setTestResult] = useState<string>('');
+  const [configValid, setConfigValid] = useState<boolean>(false);
+
+  useEffect(() => {
+    // 클라이언트 환경변수 검증
+    const isValid = validateClientConfig();
+    setConfigValid(isValid);
+  }, []);
 
   const handleOAuthLogin = () => {
     if (!mallId.trim()) {
       alert('쇼핑몰 ID를 입력해주세요');
       return;
     }
+
+    if (!configValid) {
+      alert('환경변수가 올바르게 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
     
     setIsLoading(true);
     
-    // ⭐ 수정: 카페24 OAuth URL로 직접 이동
     try {
-      const clientId = process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID;
+      const clientId = clientConfig.cafe24ClientId;
       
       if (!clientId) {
-        alert('NEXT_PUBLIC_CAFE24_CLIENT_ID 환경변수가 설정되지 않았습니다.');
-        setIsLoading(false);
-        return;
+        throw new Error('NEXT_PUBLIC_CAFE24_CLIENT_ID is not configured');
       }
 
+      console.log('🎯 Client ID from config:', clientId);
+      console.log('🎯 Mall ID:', mallId.trim());
+      console.log('🎯 Base URL:', clientConfig.baseUrl);
+
       const baseUrl = `https://${mallId.trim()}.cafe24api.com/api/v2/oauth/authorize`;
-      const redirectUri = `${window.location.origin}/api/oauth/callback`;
-      const state = Math.random().toString(36);
+      const redirectUri = `${clientConfig.baseUrl}/api/oauth/callback`;
+      const state = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      const scopes = [
+        'mall.read_product',
+        'mall.read_category', 
+        'mall.read_promotion',
+        'mall.write_promotion',
+        'mall.read_customer',
+        'mall.write_customer',
+        'mall.read_order',
+        'mall.read_community',
+        'mall.write_community',
+        'mall.read_design',
+        'mall.write_design'
+      ];
+
       const params = new URLSearchParams({
         response_type: 'code',
         client_id: clientId,
         state,
         redirect_uri: redirectUri,
-        scope: 'mall.read_product,mall.read_category,mall.read_promotion,mall.write_promotion,mall.read_customer,mall.write_customer,mall.read_order,mall.read_community,mall.write_community,mall.read_design,mall.write_design'
+        scope: scopes.join(',')
       });
       
       const authUrl = `${baseUrl}?${params.toString()}`;
       
-      console.log('🎯 OAuth URL:', authUrl);
-      console.log('🎯 Client ID:', clientId);
+      console.log('🎯 Generated OAuth URL:', authUrl);
+      console.log('🎯 Redirect URI:', redirectUri);
+      console.log('🎯 State:', state);
       
+      // OAuth 페이지로 이동
       window.location.href = authUrl;
       
     } catch (error) {
-      console.error('OAuth 연결 오류:', error);
-      alert('OAuth 연결 중 오류가 발생했습니다.');
+      console.error('OAuth connection error:', error);
+      alert(`OAuth 연결 중 오류가 발생했습니다:\n${(error as Error).message}`);
       setIsLoading(false);
     }
   };
@@ -56,10 +86,13 @@ export default function Home() {
     setTestResult('API 테스트 중...');
     
     try {
-      // ⭐ 수정: 올바른 API 경로
       const response = await fetch('/api/test-connection', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
       const data = await response.json();
       setTestResult(JSON.stringify(data, null, 2));
     } catch (error) {
@@ -81,6 +114,25 @@ export default function Home() {
             리뷰 기반 추천 구매 시스템 - 리뷰어는 적립금을, 구매자는 할인을!
           </p>
           
+          {/* 환경변수 상태 경고 */}
+          {!configValid && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium">❌ 환경변수 설정 필요</h3>
+                  <div className="mt-2 text-sm">
+                    <p>NEXT_PUBLIC_CAFE24_CLIENT_ID 환경변수가 설정되지 않았습니다.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* OAuth 테스트 섹션 */}
           <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
             <h2 className="text-2xl font-semibold mb-4">카페24 연동 테스트</h2>
@@ -97,25 +149,25 @@ export default function Home() {
                   onChange={(e) => setMallId(e.target.value)}
                   placeholder="예: dhdshop"
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isLoading}
+                  disabled={isLoading || !configValid}
                 />
                 <button
                   onClick={handleOAuthLogin}
-                  disabled={isLoading}
+                  disabled={isLoading || !configValid}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? '연동 중...' : '카페24 연동하기'}
                 </button>
               </div>
               
-              {/* ⭐ 추가: 빠른 연동 버튼 */}
+              {/* 빠른 연동 버튼 */}
               <div className="mt-3">
                 <button
                   onClick={() => {
                     setMallId('dhdshop');
                     setTimeout(() => handleOAuthLogin(), 100);
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || !configValid}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   🚀 dhdshop 바로 연동
@@ -134,9 +186,11 @@ export default function Home() {
               </button>
             </div>
             
-            {/* 환경변수 확인 */}
+            {/* 환경변수 상태 표시 */}
             <div className="mt-4 text-sm text-gray-500">
-              <p>Client ID: {process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID ? '✅ 설정됨' : '❌ 미설정'}</p>
+              <p>Client ID: {configValid ? '✅ 설정됨' : '❌ 미설정'}</p>
+              <p>Base URL: {clientConfig.baseUrl || 'undefined'}</p>
+              <p>Environment: {process.env.NODE_ENV}</p>
             </div>
             
             {/* 테스트 결과 표시 */}
