@@ -8,17 +8,22 @@ export async function GET(request: NextRequest) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
   
-  // 모든 파라미터 로깅
-  console.log('🎯 OAuth Callback - All parameters:', {
+  console.log('🎯 OAuth Callback - Parameters:', {
     code: code ? '[RECEIVED]' : 'MISSING',
     state: state || 'MISSING',
     error: error || 'NONE',
-    error_description: errorDescription || 'NONE',
-    full_url: request.url,
-    all_params: Object.fromEntries(url.searchParams.entries())
+    error_description: errorDescription || 'NONE'
   });
 
-  // 에러 파라미터가 있는 경우
+  // 환경변수 상태 디버깅
+  console.log('🎯 Environment Variables Check:', {
+    clientId: serverConfig.cafe24.clientId ? '[SET]' : 'MISSING',
+    clientSecret: serverConfig.cafe24.clientSecret ? '[SET]' : 'MISSING',
+    baseUrl: serverConfig.cafe24.baseUrl || 'MISSING',
+    nextAuthUrl: process.env.NEXTAUTH_URL || 'MISSING',
+    nextAuthSecret: process.env.NEXTAUTH_SECRET ? '[SET]' : 'MISSING'
+  });
+
   if (error) {
     console.error('❌ OAuth Error from Cafe24:', error, errorDescription);
     return NextResponse.redirect(
@@ -26,28 +31,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // code가 없는 경우
   if (!code) {
-    console.error('❌ No authorization code received. URL:', request.url);
-    console.error('❌ URL Search Params:', Object.fromEntries(url.searchParams.entries()));
-    
-    // 디버깅을 위해 모든 파라미터를 보여줌
-    const debugInfo = {
-      received_url: request.url,
-      search_params: Object.fromEntries(url.searchParams.entries()),
-      headers: Object.fromEntries(request.headers.entries())
-    };
-    
+    console.error('❌ No authorization code received');
     return NextResponse.redirect(
-      new URL(`/?error=no_code&debug=${encodeURIComponent(JSON.stringify(debugInfo))}`, request.url)
+      new URL(`/?error=no_code&url=${encodeURIComponent(request.url)}`, request.url)
     );
   }
 
   try {
-    // mallId를 state에서 추출하거나 기본값 사용
-    const mallId = 'dhdshop'; // 임시로 고정
+    const mallId = 'dhdshop';
     
-    // 토큰 교환 요청
+    // 환경변수 존재 확인
+    if (!serverConfig.cafe24.clientId || !serverConfig.cafe24.clientSecret) {
+      console.error('❌ Missing OAuth credentials');
+      return NextResponse.redirect(
+        new URL(`/?error=missing_credentials&client_id=${!!serverConfig.cafe24.clientId}&client_secret=${!!serverConfig.cafe24.clientSecret}`, request.url)
+      );
+    }
+    
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
     const redirectUri = `${serverConfig.cafe24.baseUrl}/api/oauth/callback`;
     
@@ -59,8 +60,13 @@ export async function GET(request: NextRequest) {
       redirect_uri: redirectUri,
     };
 
-    console.log('🎯 Requesting access token from:', tokenUrl);
-    console.log('🎯 Token payload:', { ...tokenPayload, client_secret: '[HIDDEN]' });
+    console.log('🎯 Token Request:', {
+      url: tokenUrl,
+      client_id: tokenPayload.client_id,
+      client_secret: tokenPayload.client_secret ? '[SET]' : 'MISSING',
+      redirect_uri: tokenPayload.redirect_uri,
+      code: '[RECEIVED]'
+    });
 
     const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
@@ -70,28 +76,32 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams(tokenPayload),
     });
 
-    console.log('🎯 Token response status:', tokenResponse.status);
+    console.log('🎯 Token Response Status:', tokenResponse.status);
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('❌ Token request failed:', tokenResponse.status, errorText);
+      console.error('❌ Token request failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText
+      });
+      
       return NextResponse.redirect(
         new URL(`/?error=token_failed&status=${tokenResponse.status}&details=${encodeURIComponent(errorText)}`, request.url)
       );
     }
 
     const tokenData = await tokenResponse.json();
-    console.log('✅ Token response received:', { 
+    console.log('✅ Token received:', {
       access_token: tokenData.access_token ? '[RECEIVED]' : 'MISSING',
       refresh_token: tokenData.refresh_token ? '[RECEIVED]' : 'MISSING',
       expires_in: tokenData.expires_in,
       scope: tokenData.scope
     });
 
-    // 토큰을 쿠키에 저장
+    // 쿠키 설정
     const response = NextResponse.redirect(new URL('/?success=oauth_complete', request.url));
     
-    // 쿠키 설정 (더 관대한 설정)
     response.cookies.set('cafe24_access_token', tokenData.access_token, {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
@@ -105,7 +115,7 @@ export async function GET(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30, // 30일
+        maxAge: 60 * 60 * 24 * 30,
         path: '/'
       });
     }
@@ -114,16 +124,7 @@ export async function GET(request: NextRequest) {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30일
-      path: '/'
-    });
-
-    // 성공 정보도 쿠키에 저장
-    response.cookies.set('cafe24_oauth_success', 'true', {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60,
+      maxAge: 60 * 60 * 24 * 30,
       path: '/'
     });
 
