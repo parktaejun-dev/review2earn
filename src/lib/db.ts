@@ -82,14 +82,14 @@ export async function saveMallSettings(data: {
       ${data.mall_id}, 
       ${data.access_token}, 
       ${data.refresh_token || null}, 
-      ${data.token_expires_at || null}, 
+      ${data.token_expires_at ? data.token_expires_at.toISOString() : null},
       ${data.api_version || '2025-09-01'}
     )
     ON CONFLICT (mall_id) 
     DO UPDATE SET 
       access_token = ${data.access_token},
       refresh_token = ${data.refresh_token || null},
-      token_expires_at = ${data.token_expires_at || null},
+      token_expires_at = ${data.token_expires_at ? data.token_expires_at.toISOString() : null},
       updated_at = CURRENT_TIMESTAMP
     RETURNING *
   `;
