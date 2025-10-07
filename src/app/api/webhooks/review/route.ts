@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       review_id: article_no.toString(),
       product_no,
       member_id,
-      referralCode  // ✅ 수정: referral_code → referralCode
+      referral_code: referralCode 
     });
 
 
