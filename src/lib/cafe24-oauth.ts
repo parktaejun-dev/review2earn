@@ -32,6 +32,7 @@ export class Cafe24OAuth {
       'mall.write_promotion',
       'mall.read_design',
       'mall.write_design',
+      'mall.read_application',
       'mall.write_application',
     ].join(',');
 
