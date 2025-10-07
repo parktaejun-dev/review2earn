@@ -1,9 +1,3 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
-
-# 다운로드가 안돼. 글씨가 다 깨져. 그냥 대화창에 쭉 적어줘. 내보내기 버튼으로 저장할께
-
-알겠습니다! 전체 설계 문서를 대화창에 작성하겠습니다. 조금 길지만 완전한 내용입니다!
-
 ***
 
 # 🎯 Review2Earn (리뷰투언) - 최종 설계 문서 v3.0
@@ -734,6 +728,3 @@ CREATE INDEX IF NOT EXISTS idx_product_rewards_mall_product
 - v1.0 (2025-10-06): 초안 작성
 
 ***
-
-이상입니다! 이 내용을 복사해서 "내보내기" 버튼으로 저장하시면 됩니다!
-

@@ -34,6 +34,7 @@ export class Cafe24OAuth {
       'mall.write_design',
       'mall.read_application',
       'mall.write_application',
+      'mall.write_scripttag',
     ].join(',');
 
     const params = new URLSearchParams({
