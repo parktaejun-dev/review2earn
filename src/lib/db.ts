@@ -342,6 +342,7 @@ export async function getReviewerTotalRewards(
   `;
   return result.rows[0]?.total || 0;
 }
+
 // ==========================================
 // 보상 비율 관리 함수
 // ==========================================
@@ -350,56 +351,49 @@ export async function getReviewerTotalRewards(
  * 제품별 보상 비율 조회 (없으면 쇼핑몰 기본값 반환)
  */
 export async function getRewardRates(mall_id: string, product_no: number) {
-  const client = await db.connect();
+  // 1. 제품별 설정 확인
+  const productResult = await sql`
+    SELECT reviewer_percent, buyer_percent, is_enabled
+    FROM product_rewards
+    WHERE mall_id = ${mall_id} AND product_no = ${product_no} AND is_enabled = true
+    LIMIT 1
+  `;
   
-  try {
-    // 1. 제품별 설정 확인
-    const productResult = await client.sql`
-      SELECT reviewer_percent, buyer_percent, is_enabled
-      FROM product_rewards
-      WHERE mall_id = ${mall_id} AND product_no = ${product_no} AND is_enabled = true
-      LIMIT 1
-    `;
-    
-    if (productResult.rows.length > 0) {
-      const row = productResult.rows[0];
-      return {
-        reviewer_percent: parseFloat(row.reviewer_percent),
-        buyer_percent: parseFloat(row.buyer_percent),
-        platform_percent: (parseFloat(row.reviewer_percent) + parseFloat(row.buyer_percent)) * 0.25
-      };
-    }
-    
-    // 2. 쇼핑몰 기본값 사용
-    const mallResult = await client.sql`
-      SELECT reviewer_percent, buyer_percent
-      FROM mall_settings
-      WHERE mall_id = ${mall_id}
-      LIMIT 1
-    `;
-    
-    if (mallResult.rows.length > 0) {
-      const row = mallResult.rows[0];
-      const reviewerPercent = parseFloat(row.reviewer_percent || '1.0');
-      const buyerPercent = parseFloat(row.buyer_percent || '1.0');
-      
-      return {
-        reviewer_percent: reviewerPercent,
-        buyer_percent: buyerPercent,
-        platform_percent: (reviewerPercent + buyerPercent) * 0.25
-      };
-    }
-    
-    // 3. 기본값 (fallback)
+  if (productResult.rows.length > 0) {
+    const row = productResult.rows[0];
     return {
-      reviewer_percent: 1.0,
-      buyer_percent: 1.0,
-      platform_percent: 0.5
+      reviewer_percent: parseFloat(row.reviewer_percent),
+      buyer_percent: parseFloat(row.buyer_percent),
+      platform_percent: (parseFloat(row.reviewer_percent) + parseFloat(row.buyer_percent)) * 0.25
     };
-    
-  } finally {
-    client.release();
   }
+  
+  // 2. 쇼핑몰 기본값 사용
+  const mallResult = await sql`
+    SELECT reviewer_percent, buyer_percent
+    FROM mall_settings
+    WHERE mall_id = ${mall_id}
+    LIMIT 1
+  `;
+  
+  if (mallResult.rows.length > 0) {
+    const row = mallResult.rows[0];
+    const reviewerPercent = parseFloat(row.reviewer_percent || '1.0');
+    const buyerPercent = parseFloat(row.buyer_percent || '1.0');
+    
+    return {
+      reviewer_percent: reviewerPercent,
+      buyer_percent: buyerPercent,
+      platform_percent: (reviewerPercent + buyerPercent) * 0.25
+    };
+  }
+  
+  // 3. 기본값 (fallback)
+  return {
+    reviewer_percent: 1.0,
+    buyer_percent: 1.0,
+    platform_percent: 0.5
+  };
 }
 
 /**
@@ -410,22 +404,16 @@ export async function updateMallRewardRates(
   reviewer_percent: number,
   buyer_percent: number
 ) {
-  const client = await db.connect();
+  const result = await sql`
+    UPDATE mall_settings
+    SET reviewer_percent = ${reviewer_percent},
+        buyer_percent = ${buyer_percent},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE mall_id = ${mall_id}
+    RETURNING id, mall_id, reviewer_percent, buyer_percent
+  `;
   
-  try {
-    const result = await client.sql`
-      UPDATE mall_settings
-      SET reviewer_percent = ${reviewer_percent},
-          buyer_percent = ${buyer_percent},
-          updated_at = CURRENT_TIMESTAMP
-      WHERE mall_id = ${mall_id}
-      RETURNING id, mall_id, reviewer_percent, buyer_percent
-    `;
-    
-    return result.rows[0];
-  } finally {
-    client.release();
-  }
+  return result.rows[0];
 }
 
 /**
@@ -438,25 +426,19 @@ export async function setProductRewardRate(
   buyer_percent: number,
   is_enabled: boolean = true
 ) {
-  const client = await db.connect();
+  const result = await sql`
+    INSERT INTO product_rewards (mall_id, product_no, reviewer_percent, buyer_percent, is_enabled)
+    VALUES (${mall_id}, ${product_no}, ${reviewer_percent}, ${buyer_percent}, ${is_enabled})
+    ON CONFLICT (mall_id, product_no)
+    DO UPDATE SET
+      reviewer_percent = ${reviewer_percent},
+      buyer_percent = ${buyer_percent},
+      is_enabled = ${is_enabled},
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING *
+  `;
   
-  try {
-    const result = await client.sql`
-      INSERT INTO product_rewards (mall_id, product_no, reviewer_percent, buyer_percent, is_enabled)
-      VALUES (${mall_id}, ${product_no}, ${reviewer_percent}, ${buyer_percent}, ${is_enabled})
-      ON CONFLICT (mall_id, product_no)
-      DO UPDATE SET
-        reviewer_percent = ${reviewer_percent},
-        buyer_percent = ${buyer_percent},
-        is_enabled = ${is_enabled},
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `;
-    
-    return result.rows[0];
-  } finally {
-    client.release();
-  }
+  return result.rows[0];
 }
 
 /**
@@ -467,19 +449,13 @@ export async function toggleProductReward(
   product_no: number,
   is_enabled: boolean
 ) {
-  const client = await db.connect();
+  const result = await sql`
+    UPDATE product_rewards
+    SET is_enabled = ${is_enabled},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE mall_id = ${mall_id} AND product_no = ${product_no}
+    RETURNING *
+  `;
   
-  try {
-    const result = await client.sql`
-      UPDATE product_rewards
-      SET is_enabled = ${is_enabled},
-          updated_at = CURRENT_TIMESTAMP
-      WHERE mall_id = ${mall_id} AND product_no = ${product_no}
-      RETURNING *
-    `;
-    
-    return result.rows[0];
-  } finally {
-    client.release();
-  }
+  return result.rows[0];
 }
