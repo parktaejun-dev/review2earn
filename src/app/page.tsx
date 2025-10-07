@@ -106,15 +106,40 @@ export default function Home() {
     }
   };
 
-  const testOAuth = () => {
-    if (!mallIdInput.trim()) {
-      alert('쇼핑몰 ID를 입력해주세요. (예: dhdshop)');
-      return;
-    }
-    
+  async function handleConnect() {
+  if (!mallIdInput.trim()) {
+    alert(' (예: dhdshop)');
+    return;
+  }
+  
+  setIsConnecting(true);
+  
+  try {
     localStorage.setItem('user_mall_id', mallIdInput);
-    window.location.href = `/api/oauth/authorize?mall_id=${mallIdInput}`;
-  };
+    
+    const response = await fetch('/api/oauth/auth-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mallId: mallIdInput })
+    });
+
+    const data = await response.json();
+
+    if (data.authUrl) {
+      sessionStorage.setItem('oauth_state', data.state);
+      window.location.href = data.authUrl;
+    } else {
+      console.error('OAuth URL 생성 실패:', data);
+      alert(`OAuth URL 생성에 실패했습니다: ${data.error || '알 수 없는 오류'}`);
+      setIsConnecting(false);
+    }
+  } catch (error) {
+    console.error('OAuth 시작 실패:', error);
+    alert('OAuth 시작에 실패했습니다. API Route가 생성되었는지 확인하세요.');
+    setIsConnecting(false);
+  }
+}
+
 
   const verifyToken = async () => {
     setIsVerifying(true);
@@ -238,11 +263,17 @@ export default function Home() {
           </div>
 
           <button
-            onClick={testOAuth}
-            className="px-6 py-3 rounded-lg font-semibold text-white bg-purple-500 hover:bg-purple-600 transform hover:scale-105 transition-all duration-300"
-          >
-            🔗 카페24 연결 시작
-          </button>
+  onClick={handleConnect}
+  disabled={isConnecting || !mallIdInput.trim()}
+  className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+    isConnecting || !mallIdInput.trim()
+      ? 'bg-gray-400 cursor-not-allowed'
+      : 'bg-purple-500 hover:bg-purple-600 transform hover:scale-105'
+  }`}
+>
+  {isConnecting ? '🔄 연결 중...' : '🔗 카페24 연결 시작'}
+</button>
+
         </div>
 
         {/* Step 1: 카페24 연결 테스트 */}
