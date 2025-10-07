@@ -1,28 +1,29 @@
+// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 환경변수 공개적으로 번들에 포함
+  // 클라이언트에서 접근 가능한 환경변수 (PUBLIC만!)
   env: {
-    NEXT_PUBLIC_CAFE24_CLIENT_ID: process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID,
-    CAFE24_CLIENT_SECRET: process.env.CAFE24_CLIENT_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    CAFE24_CLIENT_ID: process.env.CAFE24_CLIENT_ID,
+    // ⚠️ CAFE24_CLIENT_SECRET 제거! (보안)
+    CAFE24_REDIRECT_URI: process.env.CAFE24_REDIRECT_URI,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
   
-  // 추가 환경변수 설정
-  publicRuntimeConfig: {
-    CAFE24_CLIENT_ID: process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID,
-  },
-  
-  // 빌드 최적화
-  experimental: {
-    optimizePackageImports: ['@vercel/analytics'],
-  },
-  
-  // 런타임 환경변수 지원
+  // 서버에서만 접근 가능 (안전)
   serverRuntimeConfig: {
-    CAFE24_CLIENT_SECRET: process.env.CAFE24_CLIENT_SECRET,
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  }
+    cafe24ClientSecret: process.env.CAFE24_CLIENT_SECRET,
+  },
+  
+  // 공개 런타임 설정 (클라이언트도 접근)
+  publicRuntimeConfig: {
+    cafe24ClientId: process.env.CAFE24_CLIENT_ID,
+    // ⚠️ CAFE24_CLIENT_SECRET 절대 여기 넣지 마세요!
+  },
+
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
 };
 
 export default nextConfig;

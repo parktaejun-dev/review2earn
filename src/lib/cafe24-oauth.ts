@@ -1,137 +1,122 @@
-// 카페24 OAuth 2.0 구현 (TypeScript)
-interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-  scope: string;
-  mall_id: string;
-}
+// src/lib/cafe24-oauth.ts
+import crypto from 'crypto';
 
 export class Cafe24OAuth {
   private clientId: string;
   private clientSecret: string;
-  private baseUrl: string;
   private redirectUri: string;
 
   constructor() {
-    this.clientId = process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID!;
+    this.clientId = process.env.CAFE24_CLIENT_ID!;
     this.clientSecret = process.env.CAFE24_CLIENT_SECRET!;
-    this.baseUrl = process.env.NEXTAUTH_URL!;
-    this.redirectUri = `${this.baseUrl}/api/oauth/callback`;
-  }
+    this.redirectUri = process.env.CAFE24_REDIRECT_URI!;
 
-  
-  // 1단계: Authorization URL 생성
-  getAuthUrl(mallId: string, state?: string): string {
-  const authState = state || this.generateState();
-  
-  const authUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/authorize`;
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: this.clientId,
-    redirect_uri: this.redirectUri,
-    scope: [
-      'mall.read_product',           // 상품 읽기
-      'mall.read_order',             // 주문 읽기  
-      'mall.read_community',         // 게시판 읽기
-      'mall.write_community',        // 게시판 쓰기
-      'mall.read_customer',          // 회원 읽기
-      'mall.write_customer',         // 회원 쓰기 (적립금)
-      'mall.read_promotion',         // 프로모션 읽기
-      'mall.write_promotion',        // 프로모션 쓰기 (쿠폰)
-      'mall.read_design',            // 디자인 읽기
-      'mall.write_design',           // 디자인 쓰기 (스크립트)
-      'mall.write_scripttag',  // ← 추가!
-
-    ].join(','),
-    state: authState
-  });
-  
-  return `${authUrl}?${params.toString()}`;
-}
-
-
-  // 2단계: Authorization Code → Access Token
-  async getAccessToken(mallId: string, code: string): Promise<TokenResponse> {
-    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
-    const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-    
-    try {
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: this.redirectUri
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(`OAuth token exchange failed: ${data.error_description || data.error}`);
-      }
-      
-      return {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        token_type: data.token_type,
-        scope: data.scope,
-        mall_id: mallId
-      };
-    } catch (error) {
-      console.error('OAuth token exchange error:', error);
-      throw error;
+    if (!this.clientId || !this.clientSecret || !this.redirectUri) {
+      throw new Error('Cafe24 OAuth 환경변수가 설정되지 않았습니다.');
     }
   }
 
-  // 3단계: Refresh Token으로 Access Token 갱신
-  async refreshAccessToken(mallId: string, refreshToken: string): Promise<TokenResponse> {
-    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
-    const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-    
-    try {
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(`Token refresh failed: ${data.error_description || data.error}`);
-      }
-      
-      return {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        token_type: data.token_type,
-        scope: data.scope,
-        mall_id: mallId
-      };
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      throw error;
-    }
-  }
-
-  // CSRF 방지용 State 생성
+  /**
+   * CSRF 공격 방지를 위한 랜덤 state 생성
+   */
   generateState(): string {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+    return crypto.randomBytes(16).toString('hex');
+  }
+
+  /**
+   * 카페24 OAuth 인증 URL 생성
+   * ✅ mall.write_scripttag 제거됨
+   */
+  getAuthUrl(mallId: string, state: string): string {
+    const scope = [
+      'mall.read_product',
+      'mall.read_order',
+      'mall.read_community',
+      'mall.write_community',
+      'mall.read_customer',
+      'mall.write_customer',
+      'mall.read_promotion',
+      'mall.write_promotion',
+      'mall.read_design',
+      'mall.write_design'
+      // mall.write_scripttag 제거!
+    ].join(',');
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri,
+      scope: scope,
+      state: state
+    });
+
+    return `https://${mallId}.cafe24api.com/api/v2/oauth/authorize?${params.toString()}`;
+  }
+
+  /**
+   * Authorization Code로 Access Token 요청
+   */
+  async getAccessToken(mallId: string, code: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    scope: string[];
+  }> {
+    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
+    
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      redirect_uri: this.redirectUri,
+      code: code
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Token request failed: ${error}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Refresh Token으로 새로운 Access Token 발급
+   */
+  async refreshAccessToken(mallId: string, refreshToken: string): Promise<{
+    access_token: string;
+    expires_in: number;
+  }> {
+    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
+    
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      refresh_token: refreshToken
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Token refresh failed: ${error}`);
+    }
+
+    return await response.json();
   }
 }
-
