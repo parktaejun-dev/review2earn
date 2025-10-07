@@ -1,4 +1,4 @@
-// src/app/page.tsx - OAuth 토큰 localStorage 저장 추가
+// src/app/page.tsx - ESLint 에러 수정
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -31,7 +31,6 @@ export default function Home() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isInstallingScript, setIsInstallingScript] = useState(false);
 
-  // 🔥 OAuth 토큰을 URL에서 읽어 localStorage에 저장
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get('access_token');
@@ -46,10 +45,7 @@ export default function Home() {
       if (mallId) localStorage.setItem('cafe24_mall_id', mallId);
       if (expiresIn) localStorage.setItem('cafe24_expires_in', expiresIn);
       
-      // URL 파라미터 제거 (보안)
       window.history.replaceState({}, '', '/');
-      
-      // 페이지 새로고침하여 상태 업데이트
       window.location.reload();
     }
   }, []);
@@ -59,7 +55,6 @@ export default function Home() {
     setConnectionResult(null);
 
     try {
-      // 🔥 localStorage에서 토큰 읽기
       const accessToken = localStorage.getItem('cafe24_access_token');
       const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
 
@@ -83,7 +78,6 @@ export default function Home() {
   };
 
   const testOAuth = () => {
-    // OAuth 인증 페이지로 이동
     window.location.href = '/api/oauth/authorize?mall_id=dhdshop';
   };
 
@@ -129,7 +123,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-4xl mx-auto">
-        {/* 헤더 */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-gray-800 mb-4">
             🎯 Review2Earn
@@ -223,7 +216,7 @@ export default function Home() {
           
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 "할인 쿠폰 받기" 버튼을 자동으로 삽입합니다.
+              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 &ldquo;할인 쿠폰 받기&rdquo; 버튼을 자동으로 삽입합니다.
             </p>
           </div>
 
@@ -276,7 +269,7 @@ export default function Home() {
               <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">ScriptTag 설치 확인</h3>
-                <p className="text-gray-600 text-sm">위의 Step 2에서 "✅ 설치 성공!" 메시지가 나타났는지 확인하세요.</p>
+                <p className="text-gray-600 text-sm">위의 Step 2에서 &ldquo;✅ 설치 성공!&rdquo; 메시지가 나타났는지 확인하세요.</p>
               </div>
             </div>
             
@@ -303,7 +296,7 @@ export default function Home() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">리뷰 작성 페이지 이동</h3>
                 <p className="text-gray-600 text-sm">
-                  상품 페이지 → "상품후기" 또는 "리뷰 쓰기" 버튼 클릭 → 리뷰 작성 페이지로 이동
+                  상품 페이지 → &ldquo;상품후기&rdquo; 또는 &ldquo;리뷰 쓰기&rdquo; 버튼 클릭 → 리뷰 작성 페이지로 이동
                 </p>
               </div>
             </div>
@@ -314,7 +307,7 @@ export default function Home() {
                 <h3 className="font-semibold text-gray-800 mb-2">할인 버튼 확인</h3>
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-2">
                   <p className="text-orange-800 text-sm font-semibold">
-                    🎁 "할인 쿠폰 받기" 버튼이 나타나야 합니다!
+                    🎁 &ldquo;할인 쿠폰 받기&rdquo; 버튼이 나타나야 합니다!
                   </p>
                 </div>
                 <p className="text-gray-600 text-sm">
