@@ -16,17 +16,10 @@ export class Cafe24OAuth {
     }
   }
 
-  /**
-   * CSRF 공격 방지를 위한 랜덤 state 생성
-   */
   generateState(): string {
     return crypto.randomBytes(16).toString('hex');
   }
 
-  /**
-   * 카페24 OAuth 인증 URL 생성
-   * ✅ mall.write_scripttag 제거됨
-   */
   getAuthUrl(mallId: string, state: string): string {
     const scope = [
       'mall.read_product',
@@ -39,7 +32,6 @@ export class Cafe24OAuth {
       'mall.write_promotion',
       'mall.read_design',
       'mall.write_design'
-      // mall.write_scripttag 제거!
     ].join(',');
 
     const params = new URLSearchParams({
@@ -53,9 +45,6 @@ export class Cafe24OAuth {
     return `https://${mallId}.cafe24api.com/api/v2/oauth/authorize?${params.toString()}`;
   }
 
-  /**
-   * Authorization Code로 Access Token 요청
-   */
   async getAccessToken(mallId: string, code: string): Promise<{
     access_token: string;
     refresh_token: string;
@@ -88,9 +77,6 @@ export class Cafe24OAuth {
     return await response.json();
   }
 
-  /**
-   * Refresh Token으로 새로운 Access Token 발급
-   */
   async refreshAccessToken(mallId: string, refreshToken: string): Promise<{
     access_token: string;
     expires_in: number;
