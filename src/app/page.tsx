@@ -1,4 +1,4 @@
-// src/app/page.tsx - ESLint 에러 수정 + Token 검증 추가
+// src/app/page.tsx - ESLint 에러 수정 + Mall ID 입력 추가
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -53,6 +53,7 @@ export default function Home() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isInstallingScript, setIsInstallingScript] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [mallIdInput, setMallIdInput] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -71,6 +72,11 @@ export default function Home() {
       window.history.replaceState({}, '', '/');
       window.location.reload();
     }
+
+    const savedMallId = localStorage.getItem('user_mall_id');
+    if (savedMallId) {
+      setMallIdInput(savedMallId);
+    }
   }, []);
 
   const testConnection = async () => {
@@ -79,7 +85,7 @@ export default function Home() {
 
     try {
       const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
+      const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
 
       const response = await fetch('/api/test-connection', {
         headers: {
@@ -101,7 +107,13 @@ export default function Home() {
   };
 
   const testOAuth = () => {
-    window.location.href = '/api/oauth/authorize?mall_id=dhdshop';
+    if (!mallIdInput.trim()) {
+      alert('쇼핑몰 ID를 입력해주세요. (예: dhdshop)');
+      return;
+    }
+    
+    localStorage.setItem('user_mall_id', mallIdInput);
+    window.location.href = `/api/oauth/authorize?mall_id=${mallIdInput}`;
   };
 
   const verifyToken = async () => {
@@ -110,7 +122,7 @@ export default function Home() {
 
     try {
       const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
+      const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
 
       if (!accessToken) {
         alert('먼저 OAuth 인증을 완료해주세요.');
@@ -150,7 +162,7 @@ export default function Home() {
 
     try {
       const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
+      const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
 
       const response = await fetch('/api/scripttags', {
         method: 'POST',
@@ -206,11 +218,30 @@ export default function Home() {
             </p>
           </div>
 
+          <div className="mb-4">
+            <label htmlFor="mallId" className="block text-sm font-medium text-gray-700 mb-2">
+              쇼핑몰 ID (Mall ID)
+            </label>
+            <input
+              type="text"
+              id="mallId"
+              value={mallIdInput}
+              onChange={(e) => setMallIdInput(e.target.value)}
+              placeholder="예: dhdshop"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              카페24 쇼핑몰 주소에서 &ldquo;.cafe24.com&rdquo; 앞부분을 입력하세요.
+              <br />
+              예: dhdshop.cafe24.com → <strong>dhdshop</strong>
+            </p>
+          </div>
+
           <button
             onClick={testOAuth}
             className="px-6 py-3 rounded-lg font-semibold text-white bg-purple-500 hover:bg-purple-600 transform hover:scale-105 transition-all duration-300"
           >
-            🔗 카페24 연결 테스트
+            🔗 카페24 연결 시작
           </button>
         </div>
 
@@ -223,7 +254,7 @@ export default function Home() {
           
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              💡 OAuth 인증 후 카페24 API 연결 상태를 확인합니다. (dhdshop.cafe24.com)
+              💡 OAuth 인증 후 카페24 API 연결 상태를 확인합니다.
             </p>
           </div>
 
@@ -414,16 +445,11 @@ export default function Home() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">테스트 쇼핑몰 접속</h3>
                 <p className="text-gray-600 text-sm mb-2">
-                  아래 링크로 실제 카페24 쇼핑몰에 접속합니다:
+                  카페24 쇼핑몰에 접속합니다:
                 </p>
-                <a 
-                  href="https://dhdshop.cafe24.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-block bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors"
-                >
-                  🔗 dhdshop.cafe24.com 열기
-                </a>
+                <p className="text-xs text-gray-500">
+                  예: https://[Mall ID].cafe24.com
+                </p>
               </div>
             </div>
             
