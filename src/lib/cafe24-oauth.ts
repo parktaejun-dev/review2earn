@@ -32,7 +32,7 @@ export class Cafe24OAuth {
       'mall.write_promotion',
       'mall.read_design',
       'mall.write_design',
-      'mall.write_scripttag'
+      'mall.write_application',
     ].join(',');
 
     const params = new URLSearchParams({
