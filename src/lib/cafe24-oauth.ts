@@ -41,7 +41,9 @@ export class Cafe24OAuth {
       'mall.read_promotion',         // 프로모션 읽기
       'mall.write_promotion',        // 프로모션 쓰기 (쿠폰)
       'mall.read_design',            // 디자인 읽기
-      'mall.write_design'            // 디자인 쓰기 (스크립트)
+      'mall.write_design',           // 디자인 쓰기 (스크립트)
+      'mall.write_scripttag',  // ← 추가!
+
     ].join(','),
     state: authState
   });
