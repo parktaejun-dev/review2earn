@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
+    "@vercel/postgres": "^0.10.0",
     "axios": "^1.12.2",
     "crypto-js": "^4.2.0",
     "jose": "^6.1.0",
+    "nanoid": "^5.1.6",
     "next": "15.5.4",
     "next-auth": "^4.24.11",
     "react": "19.1.0",

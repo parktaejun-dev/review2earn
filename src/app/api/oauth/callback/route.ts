@@ -1,6 +1,8 @@
 // src/app/api/oauth/callback/route.ts
+// 카페24 OAuth 콜백: 토큰을 받아서 데이터베이스에 저장
 import { NextRequest, NextResponse } from 'next/server';
 import { serverConfig } from '@/lib/config';
+import { saveMallSettings } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -16,13 +18,14 @@ export async function GET(request: NextRequest) {
     error_description: errorDescription || 'NONE'
   });
 
-  // ✅ 환경변수 상태 디버깅 (수정됨)
+  // 환경변수 상태 디버깅
   console.log('🎯 Environment Variables Check:', {
     clientId: serverConfig.cafe24.clientId ? '[SET]' : 'MISSING',
     clientSecret: serverConfig.cafe24.clientSecret ? '[SET]' : 'MISSING',
-    redirectUri: serverConfig.cafe24.redirectUri ? '[SET]' : 'MISSING'  // ← 수정!
+    redirectUri: serverConfig.cafe24.redirectUri ? '[SET]' : 'MISSING'
   });
 
+  // 에러 처리
   if (error) {
     console.error('❌ OAuth Error from Cafe24:', error, errorDescription);
     return NextResponse.redirect(
@@ -38,7 +41,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const mallId = 'dhdshop';
+    // mall_id 추출 (state 파라미터에서 가져오거나 하드코딩)
+    // 실제 프로덕션에서는 state에서 mall_id를 추출해야 합니다
+    const mallId = state || 'dhdshop';
     
     // 환경변수 존재 확인
     if (!serverConfig.cafe24.clientId || !serverConfig.cafe24.clientSecret) {
@@ -49,8 +54,6 @@ export async function GET(request: NextRequest) {
     }
     
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
-    
-    // ✅ redirectUri를 serverConfig에서 가져옴
     const redirectUri = serverConfig.cafe24.redirectUri;
     
     // Token request payload
@@ -67,12 +70,13 @@ export async function GET(request: NextRequest) {
 
     console.log('🎯 Token Request:', {
       url: tokenUrl,
+      mall_id: mallId,
       client_id: serverConfig.cafe24.clientId,
       redirect_uri: redirectUri,
-      authorization: `Basic ${credentials.substring(0, 20)}...`,
       code: '[RECEIVED]'
     });
 
+    // 토큰 요청
     const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
@@ -105,11 +109,39 @@ export async function GET(request: NextRequest) {
       scope: tokenData.scope
     });
 
-    // URL 파라미터로 토큰 전달
-    console.log('✅ OAuth callback completed - redirecting with token');
+    // ============================================
+    // 🆕 데이터베이스에 토큰 저장
+    // ============================================
+    try {
+      const expiresAt = tokenData.expires_in 
+        ? new Date(Date.now() + tokenData.expires_in * 1000)
+        : undefined;
+
+      const savedSettings = await saveMallSettings({
+        mall_id: mallId,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        token_expires_at: expiresAt,
+        api_version: '2025-09-01'
+      });
+
+      console.log('✅ Token saved to database:', {
+        mall_id: savedSettings.mall_id,
+        id: savedSettings.id,
+        expires_at: savedSettings.token_expires_at
+      });
+
+    } catch (dbError) {
+      console.error('❌ Failed to save token to database:', dbError);
+      // 데이터베이스 저장 실패해도 일단 계속 진행
+      // 프로덕션에서는 더 엄격하게 처리해야 합니다
+    }
+
+    // 성공 리다이렉트 (URL 파라미터로 토큰 전달하지 않음 - 보안상)
+    console.log('✅ OAuth callback completed - redirecting to success page');
     return NextResponse.redirect(
       new URL(
-        `/?success=oauth_complete&access_token=${encodeURIComponent(tokenData.access_token)}&refresh_token=${encodeURIComponent(tokenData.refresh_token || '')}&mall_id=${mallId}&expires_in=${tokenData.expires_in || 3600}`,
+        `/?success=oauth_complete&mall_id=${mallId}`,
         request.url
       )
     );
