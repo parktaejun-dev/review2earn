@@ -43,14 +43,14 @@ export async function GET(request: NextRequest) {
     if (!serverConfig.cafe24.clientId || !serverConfig.cafe24.clientSecret) {
       console.error('❌ Missing OAuth credentials');
       return NextResponse.redirect(
-        new URL(`/?error=missing_credentials&client_id=${!!serverConfig.cafe24.clientId}&client_secret=${!!serverConfig.cafe24.clientSecret}`, request.url)
+        new URL(`/?error=missing_credentials`, request.url)
       );
     }
     
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
     const redirectUri = `${serverConfig.cafe24.baseUrl}/api/oauth/callback`;
     
-    // 🔥 Authorization 헤더 방식으로 변경
+    // 🔥 Authorization 헤더 방식
     const tokenPayload = {
       grant_type: 'authorization_code',
       code: code,
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${credentials}`, // 🔥 중요: Authorization 헤더
+        'Authorization': `Basic ${credentials}`,
       },
       body: new URLSearchParams(tokenPayload),
     });
@@ -85,11 +85,10 @@ export async function GET(request: NextRequest) {
         status: tokenResponse.status,
         statusText: tokenResponse.statusText,
         error: errorText,
-        headers: Object.fromEntries(tokenResponse.headers.entries())
       });
       
       return NextResponse.redirect(
-        new URL(`/?error=token_failed&status=${tokenResponse.status}&details=${encodeURIComponent(errorText)}`, request.url)
+        new URL(`/?error=token_failed&status=${tokenResponse.status}`, request.url)
       );
     }
 
@@ -101,45 +100,15 @@ export async function GET(request: NextRequest) {
       scope: tokenData.scope
     });
 
-    // 쿠키 설정
-    const response = NextResponse.redirect(new URL('/?success=oauth_complete', request.url));
-    
-    response.cookies.set('cafe24_access_token', tokenData.access_token, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: tokenData.expires_in || 3600,
-      path: '/'
-    });
-
-    if (tokenData.refresh_token) {
-      response.cookies.set('cafe24_refresh_token', tokenData.refresh_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-        path: '/'
-      });
-    }
-
-    response.cookies.set('cafe24_mall_id', mallId, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30,
-      path: '/'
-    });
-
-    response.cookies.set('cafe24_oauth_success', 'true', {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60,
-      path: '/'
-    });
-
-    console.log('✅ OAuth callback completed successfully');
-    return response;
+    // 🔥 URL 파라미터로 토큰 전달 (쿠키 대신)
+    // 프론트엔드에서 localStorage에 저장하도록 함
+    console.log('✅ OAuth callback completed - redirecting with token');
+    return NextResponse.redirect(
+      new URL(
+        `/?success=oauth_complete&access_token=${encodeURIComponent(tokenData.access_token)}&refresh_token=${encodeURIComponent(tokenData.refresh_token || '')}&mall_id=${mallId}&expires_in=${tokenData.expires_in || 3600}`,
+        request.url
+      )
+    );
 
   } catch (error) {
     console.error('❌ OAuth callback error:', error);

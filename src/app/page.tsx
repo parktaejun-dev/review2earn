@@ -1,7 +1,7 @@
-// src/app/page.tsx - 에러 수정 버전
+// src/app/page.tsx - OAuth 토큰 localStorage 저장 추가
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ConnectionResult {
   success: boolean;
@@ -18,11 +18,11 @@ interface ConnectionResult {
 interface ScriptTagResult {
   success: boolean;
   message?: string;
-  data?: unknown; // any → unknown으로 변경
+  data?: unknown;
   scriptLocation?: string;
   nextStep?: string;
   error?: string;
-  details?: unknown; // any → unknown으로 변경
+  details?: unknown;
 }
 
 export default function Home() {
@@ -31,16 +31,48 @@ export default function Home() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isInstallingScript, setIsInstallingScript] = useState(false);
 
+  // 🔥 OAuth 토큰을 URL에서 읽어 localStorage에 저장
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const mallId = params.get('mall_id');
+    const expiresIn = params.get('expires_in');
+    
+    if (accessToken) {
+      console.log('✅ OAuth 토큰 감지 - localStorage에 저장');
+      localStorage.setItem('cafe24_access_token', accessToken);
+      if (refreshToken) localStorage.setItem('cafe24_refresh_token', refreshToken);
+      if (mallId) localStorage.setItem('cafe24_mall_id', mallId);
+      if (expiresIn) localStorage.setItem('cafe24_expires_in', expiresIn);
+      
+      // URL 파라미터 제거 (보안)
+      window.history.replaceState({}, '', '/');
+      
+      // 페이지 새로고침하여 상태 업데이트
+      window.location.reload();
+    }
+  }, []);
+
   const testConnection = async () => {
     setIsConnecting(true);
     setConnectionResult(null);
 
     try {
-      const response = await fetch('/api/test-connection');
+      // 🔥 localStorage에서 토큰 읽기
+      const accessToken = localStorage.getItem('cafe24_access_token');
+      const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
+
+      const response = await fetch('/api/test-connection', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Mall-Id': mallId
+        }
+      });
       const data = await response.json();
       setConnectionResult(data);
     } catch (error) {
-      console.error('Connection test error:', error); // error 사용
+      console.error('Connection test error:', error);
       setConnectionResult({
         success: false,
         error: '연결 테스트 중 오류가 발생했습니다.'
@@ -48,6 +80,11 @@ export default function Home() {
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  const testOAuth = () => {
+    // OAuth 인증 페이지로 이동
+    window.location.href = '/api/oauth/authorize?mall_id=dhdshop';
   };
 
   const installScriptTag = async () => {
@@ -60,21 +97,26 @@ export default function Home() {
     setScriptTagResult(null);
 
     try {
+      const accessToken = localStorage.getItem('cafe24_access_token');
+      const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
+
       const response = await fetch('/api/scripttags', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Mall-Id': mallId
         },
         body: JSON.stringify({
-          mallId: 'dhdshop',
-          accessToken: connectionResult.accessToken
+          mallId: mallId,
+          accessToken: accessToken
         })
       });
 
       const data = await response.json();
       setScriptTagResult(data);
     } catch (error) {
-      console.error('ScriptTag install error:', error); // error 사용
+      console.error('ScriptTag install error:', error);
       setScriptTagResult({
         success: false,
         error: 'ScriptTag 설치 중 오류가 발생했습니다.'
@@ -96,8 +138,29 @@ export default function Home() {
             카페24 리뷰 기반 할인 시스템 개발 도구
           </p>
           <p className="text-sm text-gray-500">
-            Step 1: ScriptTags API 구현 및 테스트
+            Step 1: OAuth 인증 및 ScriptTags API 구현
           </p>
+        </div>
+
+        {/* Step 0: OAuth 인증 */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <span className="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">0</span>
+            카페24 OAuth 인증
+          </h2>
+          
+          <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-sm text-purple-800">
+              🔐 먼저 카페24 OAuth 인증을 완료해야 API를 사용할 수 있습니다.
+            </p>
+          </div>
+
+          <button
+            onClick={testOAuth}
+            className="px-6 py-3 rounded-lg font-semibold text-white bg-purple-500 hover:bg-purple-600 transform hover:scale-105 transition-all duration-300"
+          >
+            🔗 카페24 연결 테스트
+          </button>
         </div>
 
         {/* Step 1: 카페24 연결 테스트 */}
@@ -109,7 +172,7 @@ export default function Home() {
           
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              💡 먼저 카페24 OAuth 연결 상태를 확인합니다. (dhdshop.cafe24.com)
+              💡 OAuth 인증 후 카페24 API 연결 상태를 확인합니다. (dhdshop.cafe24.com)
             </p>
           </div>
 
@@ -122,7 +185,7 @@ export default function Home() {
                 : 'bg-blue-500 hover:bg-blue-600 transform hover:scale-105'
             }`}
           >
-            {isConnecting ? '🔄 연결 중...' : '🔗 카페24 연결 테스트'}
+            {isConnecting ? '🔄 연결 중...' : '🔗 API 연결 확인'}
           </button>
 
           {connectionResult && (
@@ -160,7 +223,7 @@ export default function Home() {
           
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 &ldquo;할인 쿠폰 받기&rdquo; 버튼을 자동으로 삽입합니다.
+              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 "할인 쿠폰 받기" 버튼을 자동으로 삽입합니다.
             </p>
           </div>
 
@@ -204,7 +267,7 @@ export default function Home() {
         {/* Step 3: 테스트 가이드 */}
         <div className="bg-white rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-            <span className="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
+            <span className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
             실제 테스트 방법
           </h2>
           
@@ -213,7 +276,7 @@ export default function Home() {
               <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">ScriptTag 설치 확인</h3>
-                <p className="text-gray-600 text-sm">위의 Step 2에서 &ldquo;✅ 설치 성공!&rdquo; 메시지가 나타났는지 확인하세요.</p>
+                <p className="text-gray-600 text-sm">위의 Step 2에서 "✅ 설치 성공!" 메시지가 나타났는지 확인하세요.</p>
               </div>
             </div>
             
@@ -227,6 +290,7 @@ export default function Home() {
                 <a 
                   href="https://dhdshop.cafe24.com" 
                   target="_blank" 
+                  rel="noopener noreferrer"
                   className="inline-block bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors"
                 >
                   🔗 dhdshop.cafe24.com 열기
@@ -239,7 +303,7 @@ export default function Home() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">리뷰 작성 페이지 이동</h3>
                 <p className="text-gray-600 text-sm">
-                  상품 페이지 → &ldquo;상품후기&rdquo; 또는 &ldquo;리뷰 쓰기&rdquo; 버튼 클릭 → 리뷰 작성 페이지로 이동
+                  상품 페이지 → "상품후기" 또는 "리뷰 쓰기" 버튼 클릭 → 리뷰 작성 페이지로 이동
                 </p>
               </div>
             </div>
@@ -250,7 +314,7 @@ export default function Home() {
                 <h3 className="font-semibold text-gray-800 mb-2">할인 버튼 확인</h3>
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-2">
                   <p className="text-orange-800 text-sm font-semibold">
-                    🎁 &ldquo;할인 쿠폰 받기&rdquo; 버튼이 나타나야 합니다!
+                    🎁 "할인 쿠폰 받기" 버튼이 나타나야 합니다!
                   </p>
                 </div>
                 <p className="text-gray-600 text-sm">
