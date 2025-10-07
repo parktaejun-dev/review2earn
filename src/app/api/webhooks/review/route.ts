@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { saveReview, checkConsent } from '@/lib/db';
 import { nanoid } from 'nanoid';
 
+
 /**
  * POST /api/webhooks/review
  * 카페24에서 리뷰가 작성되면 자동으로 호출됩니다
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
       article_no: body.resource?.article_no
     });
 
+
     // Webhook 데이터 검증
     if (!body.resource || body.resource.event !== 'created') {
       console.log('⚠️ Skipping non-created event:', body.resource?.event);
@@ -43,7 +45,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
+
     const { mall_id, product_no, member_id, article_no } = body.resource;
+
 
     // 필수 파라미터 검증
     if (!mall_id || !product_no || !member_id || !article_no) {
@@ -59,6 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
     // 회원의 참여 동의 확인
     const hasConsented = await checkConsent(mall_id, member_id);
     
@@ -71,10 +76,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
+
     console.log('✅ Member has consented:', { mall_id, member_id });
+
 
     // 추천 코드 생성 (10자리, URL-safe)
     const referralCode = nanoid(10);
+
 
     // 리뷰 정보를 데이터베이스에 저장
     const review = await saveReview({
@@ -82,8 +90,9 @@ export async function POST(request: NextRequest) {
       review_id: article_no.toString(),
       product_no,
       member_id,
-      referral_code
+      referralCode  // ✅ 수정: referral_code → referralCode
     });
+
 
     console.log('✅ Review saved with referral code:', {
       id: review.id,
@@ -95,6 +104,7 @@ export async function POST(request: NextRequest) {
       created_at: review.created_at
     });
 
+
     // 카페24에 200 OK 응답 (반드시 24시간 내에 응답해야 함)
     return NextResponse.json({
       success: true,
@@ -105,6 +115,7 @@ export async function POST(request: NextRequest) {
         member_id: review.member_id,
       }
     });
+
 
   } catch (error) {
     console.error('❌ Review webhook error:', error);
@@ -122,11 +133,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
+
 /**
  * GET /api/webhooks/review
  * Webhook 엔드포인트 확인용 (카페24 검증)
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   return NextResponse.json({
     service: 'Review2Earn Webhook',
     endpoint: 'review',
