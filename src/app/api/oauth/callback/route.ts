@@ -1,3 +1,4 @@
+// src/app/api/oauth/callback/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { serverConfig } from '@/lib/config';
 
@@ -15,11 +16,11 @@ export async function GET(request: NextRequest) {
     error_description: errorDescription || 'NONE'
   });
 
-  // 환경변수 상태 디버깅
+  // ✅ 환경변수 상태 디버깅 (수정됨)
   console.log('🎯 Environment Variables Check:', {
     clientId: serverConfig.cafe24.clientId ? '[SET]' : 'MISSING',
     clientSecret: serverConfig.cafe24.clientSecret ? '[SET]' : 'MISSING',
-    baseUrl: serverConfig.cafe24.baseUrl || 'MISSING'
+    redirectUri: serverConfig.cafe24.redirectUri ? '[SET]' : 'MISSING'  // ← 수정!
   });
 
   if (error) {
@@ -48,22 +49,26 @@ export async function GET(request: NextRequest) {
     }
     
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
-    const redirectUri = `${serverConfig.cafe24.baseUrl}/api/oauth/callback`;
     
-    // 🔥 Authorization 헤더 방식
+    // ✅ redirectUri를 serverConfig에서 가져옴
+    const redirectUri = serverConfig.cafe24.redirectUri;
+    
+    // Token request payload
     const tokenPayload = {
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: redirectUri,
     };
 
-    // 🔥 Basic Auth 헤더 생성
-    const credentials = Buffer.from(`${serverConfig.cafe24.clientId}:${serverConfig.cafe24.clientSecret}`).toString('base64');
+    // Basic Auth 헤더 생성
+    const credentials = Buffer.from(
+      `${serverConfig.cafe24.clientId}:${serverConfig.cafe24.clientSecret}`
+    ).toString('base64');
 
     console.log('🎯 Token Request:', {
       url: tokenUrl,
       client_id: serverConfig.cafe24.clientId,
-      redirect_uri: tokenPayload.redirect_uri,
+      redirect_uri: redirectUri,
       authorization: `Basic ${credentials.substring(0, 20)}...`,
       code: '[RECEIVED]'
     });
@@ -100,8 +105,7 @@ export async function GET(request: NextRequest) {
       scope: tokenData.scope
     });
 
-    // 🔥 URL 파라미터로 토큰 전달 (쿠키 대신)
-    // 프론트엔드에서 localStorage에 저장하도록 함
+    // URL 파라미터로 토큰 전달
     console.log('✅ OAuth callback completed - redirecting with token');
     return NextResponse.redirect(
       new URL(
