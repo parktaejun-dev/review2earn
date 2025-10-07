@@ -21,11 +21,12 @@ export async function POST(request: NextRequest) {
       authUrl,
       state
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Auth URL 생성 실패:', error);
     return NextResponse.json(
-      { error: 'Failed to generate auth URL', details: error.message },
+      { error: 'Failed to generate auth URL', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
+
 }
