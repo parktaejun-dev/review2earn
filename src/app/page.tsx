@@ -1,4 +1,4 @@
-// src/app/page.tsx - ESLint 에러 수정
+// src/app/page.tsx - ESLint 에러 수정 + Token 검증 추가
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -25,11 +25,34 @@ interface ScriptTagResult {
   details?: unknown;
 }
 
+interface VerifyTokenResult {
+  success: boolean;
+  message?: string;
+  timestamp?: string;
+  results?: {
+    productsApi: {
+      status: number;
+      ok: boolean;
+      message: string;
+    };
+    scriptTagsApi: {
+      status: number;
+      ok: boolean;
+      message: string;
+      error?: string;
+    };
+  };
+  conclusion?: string;
+  error?: string;
+}
+
 export default function Home() {
   const [connectionResult, setConnectionResult] = useState<ConnectionResult | null>(null);
   const [scriptTagResult, setScriptTagResult] = useState<ScriptTagResult | null>(null);
+  const [verifyResult, setVerifyResult] = useState<VerifyTokenResult | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isInstallingScript, setIsInstallingScript] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -79,6 +102,41 @@ export default function Home() {
 
   const testOAuth = () => {
     window.location.href = '/api/oauth/authorize?mall_id=dhdshop';
+  };
+
+  const verifyToken = async () => {
+    setIsVerifying(true);
+    setVerifyResult(null);
+
+    try {
+      const accessToken = localStorage.getItem('cafe24_access_token');
+      const mallId = localStorage.getItem('cafe24_mall_id') || 'dhdshop';
+
+      if (!accessToken) {
+        alert('먼저 OAuth 인증을 완료해주세요.');
+        setIsVerifying(false);
+        return;
+      }
+
+      const response = await fetch('/api/verify-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ accessToken, mallId })
+      });
+
+      const data = await response.json();
+      setVerifyResult(data);
+    } catch (error) {
+      console.error('Token verification error:', error);
+      setVerifyResult({
+        success: false,
+        error: '토큰 검증 중 오류가 발생했습니다.'
+      });
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const installScriptTag = async () => {
@@ -201,6 +259,84 @@ export default function Home() {
                 <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
                 <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
                   {JSON.stringify(connectionResult, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+        </div>
+
+        {/* Step 1.5: Access Token 검증 */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <span className="bg-indigo-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">
+              1.5
+            </span>
+            Access Token 권한 검증
+          </h2>
+          
+          <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <p className="text-sm text-indigo-800">
+              🔍 현재 토큰이 ScriptTags API 사용 권한을 가지고 있는지 확인합니다.
+            </p>
+          </div>
+
+          <button
+            onClick={verifyToken}
+            disabled={isVerifying || !connectionResult?.success}
+            className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+              isVerifying || !connectionResult?.success
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-indigo-500 hover:bg-indigo-600 transform hover:scale-105'
+            }`}
+          >
+            {isVerifying ? '🔄 검증 중...' : '🔍 토큰 권한 검증'}
+          </button>
+
+          {verifyResult && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              verifyResult.success
+                ? 'bg-green-50 border border-green-200'
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              {verifyResult.results && (
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-semibold">Products API:</span>
+                    <span className={`ml-2 ${
+                      verifyResult.results.productsApi.ok
+                        ? 'text-green-600'
+                        : 'text-red-600'
+                    }`}>
+                      {verifyResult.results.productsApi.ok ? '✅' : '❌'}
+                      {' '}{verifyResult.results.productsApi.message}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <span className="font-semibold">ScriptTags API:</span>
+                    <span className={`ml-2 ${
+                      verifyResult.results.scriptTagsApi.ok
+                        ? 'text-green-600'
+                        : 'text-red-600'
+                    }`}>
+                      {verifyResult.results.scriptTagsApi.ok ? '✅' : '❌'}
+                      {' '}{verifyResult.results.scriptTagsApi.message}
+                    </span>
+                  </div>
+                  
+                  <div className="mt-3 p-3 bg-white rounded border">
+                    <p className="font-semibold text-gray-800">결론:</p>
+                    <p className="text-sm mt-1">{verifyResult.conclusion}</p>
+                  </div>
+                </div>
+              )}
+              
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium">
+                  상세 정보 보기
+                </summary>
+                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
+                  {JSON.stringify(verifyResult, null, 2)}
                 </pre>
               </details>
             </div>
