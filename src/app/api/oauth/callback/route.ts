@@ -143,9 +143,9 @@ export async function GET(request: NextRequest) {
       });
 
       console.log('✅ Token saved to database:', {
-        mall_id: savedSettings.mall_id,
+        mall_id: savedSettings.mallId,  // ✅ camelCase
         id: savedSettings.id,
-        expires_at: savedSettings.token_expires_at
+        expires_at: savedSettings.expiresAt  // ✅ camelCase
       });
 
     } catch (dbError) {
