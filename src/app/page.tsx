@@ -445,95 +445,101 @@ export default function Home() {
           )}
         </div>
 
-        {/* Step 2: ScriptTags API 설치/제거 */}
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-            <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
-            리뷰 추천인 동의 버튼 설치/제거
-          </h2>
-          
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 &ldquo;추천인 되기에 동의합니다&rdquo; 버튼을 자동으로 삽입 또는 제거합니다.
-            </p>
-          </div>
+       {/* Step 2: ScriptTags API 설치/제거 */}
+<div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+  <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+    <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
+    Review2Earn 스크립트 설치/제거
+  </h2>
+  
+  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+    <p className="text-sm text-yellow-800">
+      🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 Review2Earn 참여 동의 기능을 자동으로 삽입 또는 제거합니다.
+    </p>
+    <p className="text-xs text-yellow-700 mt-2">
+      ℹ️ 설치 후 리뷰 작성자는 Review2Earn에 참여할 수 있으며, 참여 시 추천 링크를 받게 됩니다.
+    </p>
+  </div>
 
-          <div className="flex space-x-4">
-            <button
-              onClick={installScriptTag}
-              disabled={isInstallingScript || !connectionResult?.success}
-              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
-                isInstallingScript || !connectionResult?.success
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-500 hover:bg-green-600 transform hover:scale-105'
-              }`}
-            >
-              {isInstallingScript ? '⏳ 설치 중...' : '🚀 ScriptTag 설치하기'}
-            </button>
-            
-            <button
-              onClick={uninstallScriptTag}
-              disabled={isUninstalling || !connectionResult?.success}
-              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
-                isUninstalling || !connectionResult?.success
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-red-500 hover:bg-red-600 transform hover:scale-105'
-              }`}
-            >
-              {isUninstalling ? '⏳ 제거 중...' : '🗑️ ScriptTag 제거하기'}
-            </button>
-          </div>
+  {/* 버튼들... */}
+</div>
 
-          {scriptTagResult && (
-            <div className={`mt-4 p-4 rounded-lg ${
-              scriptTagResult.success 
-                ? 'bg-green-50 border border-green-200' 
-                : 'bg-red-50 border border-red-200'
-            }`}>
-              {scriptTagResult.success && (
-                <div className="mb-3">
-                  <span className="text-green-600 font-semibold">✅ 설치 성공!</span>
-                  <div className="text-sm text-gray-600 mt-2">
-                    <div>적용 위치: {scriptTagResult.scriptLocation}</div>
-                    <div className="text-blue-600 mt-2">{scriptTagResult.nextStep}</div>
-                  </div>
-                </div>
-              )}
-              <details className="mt-2">
-                <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
-                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
-                  {JSON.stringify(scriptTagResult, null, 2)}
-                </pre>
-              </details>
-            </div>
-          )}
-
-          {uninstallResult && (
-            <div className={`mt-4 p-4 rounded-lg ${
-              uninstallResult.success 
-                ? 'bg-green-50 border border-green-200' 
-                : 'bg-red-50 border border-red-200'
-            }`}>
-              <div className="mb-3">
-                <span className={uninstallResult.success ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
-                  {uninstallResult.success ? '✅ 제거 성공!' : '❌ 제거 실패'}
-                </span>
-                <p className="text-sm text-gray-600 mt-1">{uninstallResult.message}</p>
-                {uninstallResult.removedCount !== undefined && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    제거됨: {uninstallResult.removedCount} / 발견: {uninstallResult.totalFound}
-                  </p>
-                )}
-              </div>
-              <details className="mt-2">
-                <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
-                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
-                  {JSON.stringify(uninstallResult, null, 2)}
-                </pre>
-              </details>
-            </div>
-          )}
+{/* Step 3: 테스트 가이드 */}
+<div className="bg-white rounded-lg shadow-lg p-8">
+  <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+    <span className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
+    동작 확인 방법
+  </h2>
+  
+  <div className="space-y-6">
+    <div className="flex items-start space-x-3">
+      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
+      <div>
+        <h3 className="font-semibold text-gray-800 mb-2">ScriptTag 설치 확인</h3>
+        <p className="text-gray-600 text-sm">위의 Step 2에서 &ldquo;✅ 설치 성공!&rdquo; 메시지가 나타났는지 확인하세요.</p>
+      </div>
+    </div>
+    
+    <div className="flex items-start space-x-3">
+      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
+      <div>
+        <h3 className="font-semibold text-gray-800 mb-2">쇼핑몰 리뷰 페이지 접속</h3>
+        <p className="text-gray-600 text-sm mb-2">
+          카페24 쇼핑몰에 접속합니다:
+        </p>
+        <p className="text-xs text-gray-500">
+          예: https://[Mall ID].cafe24.com
+        </p>
+      </div>
+    </div>
+    
+    <div className="flex items-start space-x-3">
+      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">3</div>
+      <div>
+        <h3 className="font-semibold text-gray-800 mb-2">리뷰 작성 페이지 이동</h3>
+        <p className="text-gray-600 text-sm">
+          상품 페이지 → &ldquo;리뷰 쓰기&rdquo; 버튼 클릭 → 리뷰 작성 페이지로 이동
+        </p>
+      </div>
+    </div>
+    
+    <div className="flex items-start space-x-3">
+      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">4</div>
+      <div>
+        <h3 className="font-semibold text-gray-800 mb-2">Review2Earn 참여 옵션 확인</h3>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
+          <p className="text-green-800 text-sm font-semibold">
+            ✅ &ldquo;Review2Earn에 참여하시겠습니까?&rdquo; 체크박스가 나타나야 합니다!
+          </p>
         </div>
+        <p className="text-gray-600 text-sm">
+          체크 후 리뷰를 제출하면 추천 링크가 생성되고, 이 링크로 다른 사용자가 구매하면 리뷰 작성자는 적립금을 받습니다.
+        </p>
+      </div>
+    </div>
+
+    <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
+      <h4 className="font-semibold text-gray-800 mb-2">🔧 문제 해결</h4>
+      <ul className="text-sm text-gray-600 space-y-1">
+        <li>• 옵션이 안 보인다면: 브라우저 콘솔(F12)에서 오류 확인</li>
+        <li>• 스크립트 로딩 실패: 2-3초 기다린 후 페이지 새로고침</li>
+        <li>• 동의 API 실패: 네트워크 탭에서 /api/consent 확인</li>
+      </ul>
+    </div>
+
+    <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+      <h4 className="font-semibold text-gray-800 mb-2">📊 전체 플로우</h4>
+      <ol className="text-sm text-gray-600 space-y-2">
+        <li><strong>1. 리뷰 작성자(A):</strong> 리뷰 작성 + Review2Earn 참여 동의</li>
+        <li><strong>2. 시스템:</strong> 추천 링크 생성 (예: /product/100?ref=R2E...)</li>
+        <li><strong>3. 공유:</strong> 작성자(A)가 SNS/블로그에 추천 링크 공유</li>
+        <li><strong>4. 구매자(B):</strong> 추천 링크 클릭 → 상품 구매</li>
+        <li><strong>5. 보상:</strong> 작성자(A)에게 구매 금액의 1% 적립금 지급</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
 
         {/* Step 3: 테스트 가이드 */}
         <div className="bg-white rounded-lg shadow-lg p-8">
