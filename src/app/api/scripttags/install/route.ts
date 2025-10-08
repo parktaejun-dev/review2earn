@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           request: {
             src: scriptUrl,
-            display_location: ['PRODUCT_DETAIL', 'BOARD_WRITE'],
+            display_location: ['ALL'],  // ✅ 핵심 수정: 'BOARD_WRITE' 대신 'ALL'
             exclude_path: [],
             integrity: null,
             skin_no: [1],
