@@ -20,10 +20,10 @@ model MallSettings {
   refreshToken    String?   @map("refresh_token")
   tokenExpiresAt  DateTime? @map("token_expires_at")
   
-  // v3.0 보상 요율 (선택적 - 기본값은 MallSettings 없어도 동작)
-  reviewerRewardRate  Float?  @default(0.01) @map("reviewer_reward_rate")  // 리뷰어 적립금 요율 (1%)
-  buyerDiscountRate   Float?  @default(0.05) @map("buyer_discount_rate")   // 구매자 할인 요율 (5%)
-  platformFeeRate     Float?  @default(0.005) @map("platform_fee_rate")    // 플랫폼 수수료 (0.5%)
+  // v3.0 보상 요율 (기본값 설정 - NOT NULL)
+  reviewerRewardRate  Float   @default(0.01) @map("reviewer_reward_rate")  // 리뷰어 적립금 요율 (1%)
+  buyerDiscountRate   Float   @default(0.05) @map("buyer_discount_rate")   // 구매자 할인 요율 (5%)
+  platformFeeRate     Float   @default(0.005) @map("platform_fee_rate")    // 플랫폼 수수료 (0.5%)
   
   // 운영 정보
   isActive        Boolean   @default(true) @map("is_active")
