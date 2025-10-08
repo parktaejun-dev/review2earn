@@ -79,20 +79,15 @@ export default function Home() {
     }
   }, []);
 
-  const testConnection = async () => {
+    const testConnection = async () => {
     setIsConnecting(true);
     setConnectionResult(null);
 
     try {
-      const accessToken = localStorage.getItem('cafe24_access_token');
+      // ✅ mall_id를 URL 파라미터로 전달 (DB에서 토큰 읽음)
       const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
-
-      const response = await fetch('/api/test-connection', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'X-Mall-Id': mallId
-        }
-      });
+      const response = await fetch(`/api/test-connection?mall_id=${mallId}`);
+      
       const data = await response.json();
       setConnectionResult(data);
     } catch (error) {
@@ -105,6 +100,7 @@ export default function Home() {
       setIsConnecting(false);
     }
   };
+
 
   async function handleConnect() {
   if (!mallIdInput.trim()) {
