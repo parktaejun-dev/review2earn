@@ -1,148 +1,142 @@
 // src/app/api/webhooks/review/route.ts
-// 카페24 리뷰 작성 Webhook: 리뷰가 작성되면 추천 코드를 생성합니다
 import { NextRequest, NextResponse } from 'next/server';
-import { saveReview, checkConsent } from '@/lib/db';
-import { nanoid } from 'nanoid';
+import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
 
-
-/**
- * POST /api/webhooks/review
- * 카페24에서 리뷰가 작성되면 자동으로 호출됩니다
- * 
- * Webhook Body (카페24에서 전송):
- * {
- *   event_no: number,
- *   resource: {
- *     mall_id: string,
- *     event: "created",
- *     board_no: number,
- *     product_no: number,
- *     member_id: string,
- *     article_no: number
- *   }
- * }
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    console.log('🎯 Review Webhook received:', {
-      event_no: body.event_no,
-      mall_id: body.resource?.mall_id,
-      event: body.resource?.event,
-      product_no: body.resource?.product_no,
-      member_id: body.resource?.member_id,
-      article_no: body.resource?.article_no
-    });
+    console.log('📥 Review Webhook received:', JSON.stringify(body, null, 2));
 
+    // Cafe24 웹훅 데이터 추출
+    const resource = body.resource;
+    const mallId = body.mall_id || 'dhdshop'; // 기본값 (나중에 제거 필요)
 
-    // Webhook 데이터 검증
-    if (!body.resource || body.resource.event !== 'created') {
-      console.log('⚠️ Skipping non-created event:', body.resource?.event);
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Event ignored (not a creation event)' 
-      });
-    }
-
-
-    const { mall_id, product_no, member_id, article_no } = body.resource;
-
-
-    // 필수 파라미터 검증
-    if (!mall_id || !product_no || !member_id || !article_no) {
-      console.error('❌ Missing required webhook parameters:', {
-        mall_id,
-        product_no,
-        member_id,
-        article_no
-      });
+    if (!resource) {
       return NextResponse.json(
-        { success: false, error: 'Missing required parameters' },
+        { success: false, error: 'Missing resource data' },
         { status: 400 }
       );
     }
 
+    // 리뷰 데이터 추출
+    const {
+      board_no,
+      product_no,
+      member_id,
+      content,
+      rating,
+    } = resource;
 
-    // 회원의 참여 동의 확인
-    const hasConsented = await checkConsent(mall_id, member_id);
-    
-    if (!hasConsented) {
-      console.log('⚠️ Member has not consented:', { mall_id, member_id });
+    console.log('📝 Review data:', {
+      board_no,
+      product_no,
+      member_id,
+      mallId,
+    });
+
+    // 필수 필드 검증
+    if (!board_no || !product_no || !member_id) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // 1. 동의 여부 확인
+    const consent = await prisma.consent.findUnique({
+      where: {
+        memberId_mallId: {
+          memberId: member_id,
+          mallId,
+        },
+      },
+    });
+
+    if (!consent || !consent.consented) {
+      console.log('❌ User has not consented to R2E program');
       return NextResponse.json({
-        success: true,
-        message: 'Member has not opted in to the program',
-        consented: false
+        success: false,
+        reason: 'not_consented',
+        message: 'User has not consented to participate in Review2Earn',
       });
     }
 
+    // 2. 추천 코드 생성
+    const referralCode = generateReferralCode(member_id, product_no, board_no);
 
-    console.log('✅ Member has consented:', { mall_id, member_id });
-
-
-    // 추천 코드 생성 (10자리, URL-safe)
-    const referralCode = nanoid(10);
-
-
-    // 리뷰 정보를 데이터베이스에 저장
-    const review = await saveReview({
-      mall_id,
-      review_id: article_no.toString(),
-      product_no,
-      member_id,
-      referral_code: referralCode 
+    // 3. 리뷰 저장 (upsert)
+    const review = await prisma.review.upsert({
+      where: {
+        cafe24BoardNo_mallId: {
+          cafe24BoardNo: board_no,
+          mallId,
+        },
+      },
+      update: {
+        content: content || null,
+        rating: rating || null,
+        participateR2e: true,
+        updatedAt: new Date(),
+      },
+      create: {
+        cafe24BoardNo: board_no,
+        productNo: product_no,
+        memberId: member_id,
+        mallId,
+        content: content || null,
+        rating: rating || null,
+        referralCode,
+        participateR2e: true,
+      },
     });
 
-
-    console.log('✅ Review saved with referral code:', {
+    console.log('✅ Review saved:', {
       id: review.id,
-      mall_id: review.mall_id,
-      review_id: review.review_id,
-      product_no: review.product_no,
-      member_id: review.member_id,
-      referral_code: review.referral_code,
-      created_at: review.created_at
+      referralCode: review.referralCode,
     });
 
+    // 4. 추천 링크 생성
+    const baseUrl = process.env.NEXTAUTH_URL || 'https://review2earn.vercel.app';
+    const referralLink = `${baseUrl}/product/${product_no}?ref=${referralCode}`;
 
-    // 카페24에 200 OK 응답 (반드시 24시간 내에 응답해야 함)
     return NextResponse.json({
       success: true,
       data: {
-        review_id: review.review_id,
-        referral_code: review.referral_code,
-        product_no: review.product_no,
-        member_id: review.member_id,
-      }
+        reviewId: review.id,
+        referralCode: review.referralCode,
+        referralLink,
+        message: 'Review registered successfully for Review2Earn program',
+      },
     });
-
 
   } catch (error) {
     console.error('❌ Review webhook error:', error);
-    
-    // 에러가 발생해도 200을 반환 (카페24가 재시도하지 않도록)
-    // 프로덕션에서는 에러 로깅 시스템에 기록해야 합니다
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Internal server error',
-        details: (error as Error).message 
+      {
+        success: false,
+        error: 'Failed to process review webhook',
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
-      { status: 200 } // 카페24 재시도 방지
+      { status: 500 }
     );
   }
 }
 
-
-/**
- * GET /api/webhooks/review
- * Webhook 엔드포인트 확인용 (카페24 검증)
- */
-export async function GET() {
-  return NextResponse.json({
-    service: 'Review2Earn Webhook',
-    endpoint: 'review',
-    status: 'active',
-    version: '1.0.0'
-  });
+// 추천 코드 생성 함수
+function generateReferralCode(
+  memberId: string,
+  productNo: number,
+  boardNo: number
+): string {
+  const timestamp = Date.now();
+  const data = `${memberId}-${productNo}-${boardNo}-${timestamp}`;
+  const hash = crypto
+    .createHash('sha256')
+    .update(data)
+    .digest('hex')
+    .substring(0, 12)
+    .toUpperCase();
+  
+  return `R2E${hash}`;
 }
