@@ -1,7 +1,8 @@
 // src/lib/db.ts
 // Review2Earn 데이터베이스 헬퍼 함수
-// 멀티테넌트 구조: 모든 함수는 mall_id를 필수로 받습니다
+// Prisma로 통일된 데이터베이스 액세스
 
+import { prisma } from '@/lib/prisma';
 import { sql } from '@vercel/postgres';
 
 // ============================================
@@ -10,18 +11,13 @@ import { sql } from '@vercel/postgres';
 
 export interface MallSettings {
   id: number;
-  mall_id: string;
-  access_token: string;
-  refresh_token?: string;
-  token_expires_at?: Date;
-  api_version: string;
-  scripttag_consent_id?: string;
-  scripttag_button_id?: string;
-  webhook_review_id?: string;
-  webhook_order_id?: string;
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  mallId: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+  scope?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Consent {
@@ -61,7 +57,7 @@ export interface Transaction {
 }
 
 // ============================================
-// 쇼핑몰 설정 함수
+// 쇼핑몰 설정 함수 (Prisma 사용)
 // ============================================
 
 /**
@@ -74,36 +70,60 @@ export async function saveMallSettings(data: {
   token_expires_at?: Date;
   api_version?: string;
 }): Promise<MallSettings> {
-  const result = await sql<MallSettings>`
-    INSERT INTO mall_settings (
-      mall_id, access_token, refresh_token, token_expires_at, api_version
-    )
-    VALUES (
-      ${data.mall_id}, 
-      ${data.access_token}, 
-      ${data.refresh_token || null}, 
-      ${data.token_expires_at ? data.token_expires_at.toISOString() : null},
-      ${data.api_version || '2025-09-01'}
-    )
-    ON CONFLICT (mall_id) 
-    DO UPDATE SET 
-      access_token = ${data.access_token},
-      refresh_token = ${data.refresh_token || null},
-      token_expires_at = ${data.token_expires_at ? data.token_expires_at.toISOString() : null},
-      updated_at = CURRENT_TIMESTAMP
-    RETURNING *
-  `;
-  return result.rows[0];
+  const result = await prisma.installationToken.upsert({
+    where: {
+      mallId: data.mall_id
+    },
+    update: {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || null,
+      expiresAt: data.token_expires_at || null,
+      scope: null,
+      updatedAt: new Date()
+    },
+    create: {
+      mallId: data.mall_id,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || null,
+      expiresAt: data.token_expires_at || null,
+      scope: null
+    }
+  });
+
+  return {
+    id: result.id,
+    mallId: result.mallId,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken || undefined,
+    expiresAt: result.expiresAt || undefined,
+    scope: result.scope || undefined,
+    createdAt: result.createdAt,
+    updatedAt: result.updatedAt
+  };
 }
 
 /**
  * 쇼핑몰 설정을 조회합니다
  */
 export async function getMallSettings(mall_id: string): Promise<MallSettings | null> {
-  const result = await sql<MallSettings>`
-    SELECT * FROM mall_settings WHERE mall_id = ${mall_id} LIMIT 1
-  `;
-  return result.rows[0] || null;
+  const result = await prisma.installationToken.findUnique({
+    where: {
+      mallId: mall_id
+    }
+  });
+
+  if (!result) return null;
+
+  return {
+    id: result.id,
+    mallId: result.mallId,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken || undefined,
+    expiresAt: result.expiresAt || undefined,
+    scope: result.scope || undefined,
+    createdAt: result.createdAt,
+    updatedAt: result.updatedAt
+  };
 }
 
 /**
