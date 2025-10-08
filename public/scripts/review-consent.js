@@ -1,151 +1,154 @@
-// public/scripts/review-consent.js
+// public/scripts/review-consent.js (최종 버전)
+
 (function() {
   'use strict';
 
-  // ============================================
-  // 0. 리뷰 작성 페이지 확인 (수정!)
-  // ============================================
-  const path = window.location.pathname;
-  const isReviewPage = 
-    path.includes('/board/product/write') ||  // ✅ /board/product/write.html
-    path.includes('/board/review/write') ||
-    path.includes('write.html');
+  console.log('✅ Review2Earn 스크립트 로드됨');
 
-  if (!isReviewPage) {
-    console.log('ℹ️ Review2Earn: 리뷰 작성 페이지가 아닙니다.', path);
-    return;
+  // 전역 설정
+  const API_BASE_URL = 'https://review2earn.vercel.app';
+  const DEFAULT_REVIEWER_PERCENT = 1.0;
+  const DEFAULT_BUYER_PERCENT = 5.0;
+
+  // 현재 mall_id와 product_id 추출
+  function extractMallAndProductId() {
+    const hostname = window.location.hostname;
+    const mallId = hostname.split('.')[0]; // 예: dhdshop.cafe24.com → dhdshop
+    
+    // URL에서 product_no 추출
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('product_no') || 
+                      urlParams.get('no') ||
+                      document.querySelector('[name="product_no"]')?.value ||
+                      '0';
+
+    return { mallId, productId };
   }
 
-  console.log('✅ Review2Earn: 리뷰 작성 페이지 감지');
-
-  // ============================================
-  // 1. Mall ID 추출
-  // ============================================
-  const hostname = window.location.hostname;
-  const mallId = hostname.split('.')[0];
-  console.log('🏪 Mall ID:', mallId);
-
-  // ============================================
-  // 2. 제품 ID 추출
-  // ============================================
-  const urlParams = new URLSearchParams(window.location.search);
-  const productId = urlParams.get('product_no');
-
-  if (!productId) {
-    console.error('❌ Review2Earn: 제품 ID를 찾을 수 없습니다.');
-    console.log('URL:', window.location.href);
-    console.log('Query Params:', window.location.search);
-    return;
-  }
-
-  console.log('📦 Product ID:', productId);
-
-  // ============================================
-  // 3. 보상 비율 조회 (비동기)
-  // ============================================
-  fetchRewardRate(mallId, productId);
-
-  // ============================================
-  // 보상 비율 조회 함수
-  // ============================================
-  async function fetchRewardRate(mallId, productId) {
+  // API에서 동적 비율 가져오기
+  async function fetchRewardRates() {
     try {
-      const apiUrl = `https://review2earn.vercel.app/api/reward-rate?mall_id=${mallId}&product_id=${productId}`;
-      console.log('🔍 API 호출:', apiUrl);
-
-      const response = await fetch(apiUrl);
-
+      const { mallId, productId } = extractMallAndProductId();
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/reward-rate?mall_id=${mallId}&product_id=${productId}`
+      );
+      
       if (!response.ok) {
-        throw new Error(`API 호출 실패: ${response.status}`);
+        throw new Error('API 호출 실패');
       }
-
+      
       const data = await response.json();
-      console.log('✅ API 응답:', data);
-
-      if (!data.success) {
-        throw new Error('보상 비율 조회 실패');
+      
+      if (data.success) {
+        return {
+          reviewerPercent: data.reviewerPercent || DEFAULT_REVIEWER_PERCENT,
+          buyerPercent: data.buyerPercent || DEFAULT_BUYER_PERCENT,
+        };
       }
-
-      // 체크박스 생성 (동적 비율 적용)
-      insertConsentCheckbox(data.reviewerPercent, data.buyerPercent);
-
+      
+      throw new Error('API 응답 실패');
     } catch (error) {
-      console.error('❌ Review2Earn 비율 조회 오류:', error);
-      // 에러 발생 시 기본값 사용
-      insertConsentCheckbox(1.0, 5.0);
+      console.warn('⚠️ Review2Earn API 오류, 기본값 사용:', error);
+      return {
+        reviewerPercent: DEFAULT_REVIEWER_PERCENT,
+        buyerPercent: DEFAULT_BUYER_PERCENT,
+      };
     }
   }
 
-  // ============================================
-  // 체크박스 삽입 함수
-  // ============================================
-  function insertConsentCheckbox(reviewerPercent, buyerPercent) {
-    const checkboxHtml = `
+  // 체크박스 HTML 생성 (개선된 디자인)
+  function createCheckboxHtml(reviewerPercent, buyerPercent) {
+    return `
       <div id="r2e-consent-wrapper" style="
         margin: 20px 0; 
-        padding: 20px; 
+        padding: 25px; 
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-        transition: all 0.3s ease;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       " 
-      onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 12px 40px rgba(102, 126, 234, 0.4)';" 
-      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 32px rgba(102, 126, 234, 0.3)';">
+      onmouseover="this.style.transform='translateY(-4px) scale(1.01)'; this.style.boxShadow='0 20px 60px rgba(102, 126, 234, 0.5)';" 
+      onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 40px rgba(102, 126, 234, 0.4)';">
         <label style="display: flex; align-items: flex-start; cursor: pointer;">
           <input type="checkbox" id="r2e-consent-checkbox" style="
-            width: 28px; 
-            height: 28px; 
-            margin-right: 15px; 
-            margin-top: 4px;
+            width: 32px; 
+            height: 32px; 
+            margin-right: 18px; 
+            margin-top: 2px;
             cursor: pointer; 
             accent-color: #10b981;
             flex-shrink: 0;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
           ">
           <div style="color: white; flex: 1;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-              <span style="font-size: 1.3em;">💰</span>
-              <strong style="font-size: 1.15em;">Review2Earn에 참여하기</strong>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+              <span style="font-size: 1.5em; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">💰</span>
+              <strong style="font-size: 1.25em; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">Review2Earn에 참여하기</strong>
             </div>
-            <p style="margin: 0; font-size: 1em; line-height: 1.6; opacity: 0.95;">
+            <p style="margin: 0; font-size: 1.05em; line-height: 1.7; opacity: 0.95;">
               이 리뷰를 통해 구매가 발생하면<br>
-              <strong style="color: #fcd34d; font-size: 1.2em;">${reviewerPercent}%</strong> 
-              <span style="font-size: 0.9em;">적립금을 받습니다!</span>
+              <strong style="color: #fcd34d; font-size: 1.3em; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${reviewerPercent}%</strong> 
+              <span style="font-size: 0.95em;">적립금을 받습니다!</span>
             </p>
-            <p style="margin: 8px 0 0 0; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.85em; opacity: 0.8;">
-              💸 구매자는 <strong>${buyerPercent}%</strong> 할인 혜택을 받습니다.
+            <p style="margin: 12px 0 0 0; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.3); font-size: 0.9em; opacity: 0.85;">
+              💸 구매자는 <strong style="color: #fcd34d;">${buyerPercent}%</strong> 할인 혜택을 받습니다.
             </p>
           </div>
         </label>
       </div>
     `;
+  }
 
-    // 폼 찾기 (여러 패턴 시도)
-    const form = document.querySelector('form[name="boardWriteForm"]') ||
-                 document.querySelector('form#boardWriteForm') ||
-                 document.querySelector('form[action*="write"]');
-    
-    if (!form) {
-      console.error('❌ Review2Earn: 리뷰 작성 폼을 찾을 수 없습니다.');
-      console.log('페이지 내 모든 폼:', document.querySelectorAll('form'));
+  // 체크박스 삽입 (개선된 버튼 찾기)
+  function insertConsentCheckbox(reviewerPercent, buyerPercent) {
+    // 이미 삽입되었는지 확인
+    if (document.getElementById('r2e-consent-wrapper')) {
+      console.log('ℹ️ Review2Earn: 이미 체크박스가 삽입되어 있습니다.');
       return;
     }
 
-    console.log('✅ 폼 발견:', form);
+    const checkboxHtml = createCheckboxHtml(reviewerPercent, buyerPercent);
 
-    // 제출 버튼 찾기 (여러 패턴 시도)
-    const submitButton = form.querySelector('button[type="submit"]') || 
-                         form.querySelector('input[type="submit"]') ||
-                         form.querySelector('a.btnSubmit') ||
-                         form.querySelector('.btn-submit') ||
-                         form.querySelector('button.submit') ||
-                         form.querySelector('[class*="submit"]');
+    // 폼 찾기
+    const form = document.querySelector('form[name="boardWriteForm"]') ||
+                 document.querySelector('form#boardWriteForm') ||
+                 document.querySelector('form[action*="write"]') ||
+                 document.querySelector('form[action*="review"]');
+    
+    if (!form) {
+      console.error('❌ Review2Earn: 리뷰 작성 폼을 찾을 수 없습니다.');
+      return;
+    }
+
+    console.log('✅ Review2Earn: 폼 발견', form);
+
+    // 제출 버튼 찾기 (개선된 패턴)
+    const submitButton = 
+      form.querySelector('button[type="submit"]') || 
+      form.querySelector('input[type="submit"]') ||
+      form.querySelector('input[type="image"]') ||
+      form.querySelector('a.btnSubmit') ||
+      form.querySelector('.btn-submit') ||
+      form.querySelector('button.submit') ||
+      form.querySelector('[class*="submit" i]') ||
+      form.querySelector('[class*="Submit"]') ||
+      form.querySelector('button[onclick*="submit"]') ||
+      form.querySelector('a[onclick*="submit"]') ||
+      form.querySelector('a[href*="javascript"]') ||
+      // 버튼 텍스트로 찾기
+      Array.from(form.querySelectorAll('button, input[type="button"], a.btn')).find(
+        btn => /등록|저장|완료|submit/i.test(btn.textContent || btn.value)
+      ) ||
+      // 마지막 버튼 찾기
+      Array.from(form.querySelectorAll('button, input[type="button"], input[type="submit"], a.btn')).pop();
     
     if (submitButton) {
       submitButton.insertAdjacentHTML('beforebegin', checkboxHtml);
       console.log(`✅ Review2Earn: 체크박스 삽입 완료 (리뷰 작성자: ${reviewerPercent}%, 구매자: ${buyerPercent}%)`);
     } else {
       console.warn('⚠️ Review2Earn: 제출 버튼을 찾을 수 없습니다. 폼 끝에 삽입합니다.');
-      // 폼 끝에 삽입 (대체 방법)
       form.insertAdjacentHTML('beforeend', checkboxHtml);
       console.log('⚠️ Review2Earn: 폼 끝에 체크박스 삽입');
     }
@@ -154,68 +157,70 @@
     form.addEventListener('submit', handleFormSubmit);
   }
 
-  // ============================================
-  // 폼 제출 핸들러
-  // ============================================
+  // 폼 제출 처리
   function handleFormSubmit(event) {
     const checkbox = document.getElementById('r2e-consent-checkbox');
-
-    if (!checkbox || !checkbox.checked) {
-      console.log('ℹ️ Review2Earn: 동의하지 않음');
+    
+    if (!checkbox) {
+      console.warn('⚠️ Review2Earn: 체크박스를 찾을 수 없습니다.');
       return;
     }
 
-    console.log('✅ Review2Earn: 동의 체크됨, API 호출 준비');
+    if (checkbox.checked) {
+      console.log('✅ Review2Earn: 사용자가 참여에 동의했습니다.');
+      
+      // 폼에 hidden input 추가 (서버 전송용)
+      const hiddenInput = document.createElement('input');
+      hiddenInput.type = 'hidden';
+      hiddenInput.name = 'r2e_consent';
+      hiddenInput.value = 'true';
+      event.target.appendChild(hiddenInput);
+      
+      console.log('✅ Review2Earn: r2e_consent=true 전송');
+    } else {
+      console.log('ℹ️ Review2Earn: 사용자가 참여하지 않기로 선택했습니다.');
+    }
+  }
 
-    // 동의 정보를 Review2Earn API로 전송 (비동기, 논블로킹)
-    setTimeout(async () => {
-      try {
-        const customerId = getCookie('member_id'); // 카페24 회원 ID
-        const customerEmail = getCookie('member_email'); // 카페24 이메일
-        
-        if (!customerId) {
-          console.error('❌ Review2Earn: 회원 ID를 찾을 수 없습니다.');
-          console.log('쿠키 전체:', document.cookie);
-          return;
-        }
+  // 초기화
+  async function init() {
+    console.log('🚀 Review2Earn: 초기화 시작');
 
-        const mallId = window.location.hostname.split('.')[0];
-        const urlParams = new URLSearchParams(window.location.search);
-        const productId = urlParams.get('product_no');
+    // 동적 비율 가져오기
+    const { reviewerPercent, buyerPercent } = await fetchRewardRates();
+    
+    console.log(`📊 Review2Earn: 리뷰어 ${reviewerPercent}%, 구매자 ${buyerPercent}%`);
 
-        const payload = {
-          mallId,
-          reviewId: 'pending',
-          productId,
-          customerId,
-          customerEmail: customerEmail || null
-        };
+    // 체크박스 삽입 시도
+    insertConsentCheckbox(reviewerPercent, buyerPercent);
 
-        console.log('📤 API 전송:', payload);
-
-        const response = await fetch('https://review2earn.vercel.app/api/consent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-        console.log('✅ Review2Earn 참여 완료:', data);
-
-      } catch (error) {
-        console.error('❌ Review2Earn API 오류:', error);
+    // DOM 변경 감지 (동적 페이지 대응)
+    const observer = new MutationObserver((mutations) => {
+      if (!document.getElementById('r2e-consent-wrapper')) {
+        insertConsentCheckbox(reviewerPercent, buyerPercent);
       }
-    }, 0);
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
   }
 
-  // ============================================
-  // 쿠키 읽기 헬퍼
-  // ============================================
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return null;
+  // DOM 로드 완료 후 실행
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
+
+  // 페이지 완전 로드 후에도 한번 더 시도
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (!document.getElementById('r2e-consent-wrapper')) {
+        init();
+      }
+    }, 1000);
+  });
 
 })();
