@@ -13,11 +13,11 @@ export async function GET(request: NextRequest) {
     // 데이터베이스에서 토큰 조회
     const mallSettings = await prisma.installationToken.findUnique({
       where: {
-        mall_id: mallId
+        mallId: mallId
       }
     });
 
-    if (!mallSettings || !mallSettings.access_token) {
+    if (!mallSettings || !mallSettings.accessToken) {
       console.log('❌ No token found for mall_id:', mallId);
       return NextResponse.json({
         success: false,
@@ -28,13 +28,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Token found:', {
-      mall_id: mallSettings.mall_id,
-      token: mallSettings.access_token.substring(0, 20) + '...',
-      expires_at: mallSettings.token_expires_at
+      mall_id: mallSettings.mallId,
+      token: mallSettings.accessToken.substring(0, 20) + '...',
+      expires_at: mallSettings.expiresAt  // ✅ expiresAt
     });
 
     // 토큰 만료 확인
-    if (mallSettings.token_expires_at && new Date(mallSettings.token_expires_at) < new Date()) {
+    if (mallSettings.expiresAt && new Date(mallSettings.expiresAt) < new Date()) {  // ✅ expiresAt
       console.log('⚠️ Token expired for mall_id:', mallId);
       return NextResponse.json({
         success: false,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(apiUrl, {
       headers: {
-        'Authorization': `Bearer ${mallSettings.access_token}`,
+        'Authorization': `Bearer ${mallSettings.accessToken}`,
         'Content-Type': 'application/json',
       }
     });
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       },
       token_status: 'Active',
       oauth_status: 'Complete',
-      expires_at: mallSettings.token_expires_at
+      expires_at: mallSettings.expiresAt  // ✅ expiresAt
     });
 
   } catch (error) {
