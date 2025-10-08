@@ -16,19 +16,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/?error=no_code', request.url));
     }
 
-    // 카페24 토큰 요청
     const clientId = process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID!;
     const clientSecret = process.env.CAFE24_CLIENT_SECRET!;
     const redirectUri = `${process.env.NEXTAUTH_URL}/api/oauth/callback`;
 
-    console.log('📝 Token request params:', {
-      clientId,
-      redirectUri,
-      mallId,
-      hasSecret: !!clientSecret
-    });
-
-    // ✅ Authorization Header 추가!
     const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
     const tokenResponse = await fetch(
@@ -36,7 +27,7 @@ export async function GET(request: NextRequest) {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Basic ${authHeader}`,  // ← 추가!
+          'Authorization': `Basic ${authHeader}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
@@ -62,11 +53,32 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log('✅ Token obtained successfully');
+    console.log('✅ Token obtained:', tokenData);
 
-    // MallSettings에 저장 (upsert)
-    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+    // ✅ expires_in 처리 수정
+    const expiresInSeconds = tokenData.expires_in || tokenData.expires_at || 7200; // 기본 2시간
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
+    console.log('📅 Token expiry:', {
+      expiresInSeconds,
+      expiresAt: expiresAt.toISOString(),
+      isValid: !isNaN(expiresAt.getTime())
+    });
+
+    // ✅ 유효성 검증 추가
+    if (isNaN(expiresAt.getTime())) {
+      console.error('❌ Invalid expiry date');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid token expiry date',
+          details: `expires_in: ${expiresInSeconds}`
+        },
+        { status: 500 }
+      );
+    }
+
+    // MallSettings에 저장
     await prisma.mallSettings.upsert({
       where: { mallId },
       update: {
@@ -87,9 +99,9 @@ export async function GET(request: NextRequest) {
     // 프론트엔드로 리다이렉트
     const redirectUrl = new URL('/', request.url);
     redirectUrl.searchParams.set('access_token', tokenData.access_token);
-    redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
+    redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token || '');
     redirectUrl.searchParams.set('mall_id', mallId);
-    redirectUrl.searchParams.set('expires_in', tokenData.expires_in.toString());
+    redirectUrl.searchParams.set('expires_in', expiresInSeconds.toString());
 
     return NextResponse.redirect(redirectUrl);
 
