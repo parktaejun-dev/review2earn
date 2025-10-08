@@ -43,6 +43,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // ✅ Authorization Header 생성
+    const authHeader = Buffer.from(
+      `${CAFE24_CLIENT_ID}:${CAFE24_CLIENT_SECRET}`
+    ).toString('base64');
+
     // Access Token 요청
     console.log('🔄 Access Token 요청 시작...');
     
@@ -52,13 +57,12 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${authHeader}`, // ✅ 추가!
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
         redirect_uri: CAFE24_REDIRECT_URI,
-        client_id: CAFE24_CLIENT_ID,
-        client_secret: CAFE24_CLIENT_SECRET,
       }),
     });
 
@@ -84,7 +88,7 @@ export async function GET(request: NextRequest) {
       expires_at,
     } = tokenData;
 
-    // ✅ DB에 저장 (tokenExpiresAt 사용)
+    // DB에 저장
     console.log('💾 DB에 토큰 저장 중...');
     
     await prisma.mallSettings.upsert({
@@ -92,7 +96,7 @@ export async function GET(request: NextRequest) {
       update: {
         accessToken: access_token,
         refreshToken: refresh_token,
-        tokenExpiresAt: new Date(expires_at * 1000), // ✅ 수정됨!
+        tokenExpiresAt: new Date(expires_at * 1000),
         isActive: true,
         updatedAt: new Date(),
       },
@@ -100,7 +104,7 @@ export async function GET(request: NextRequest) {
         mallId: mallId,
         accessToken: access_token,
         refreshToken: refresh_token,
-        tokenExpiresAt: new Date(expires_at * 1000), // ✅ 수정됨!
+        tokenExpiresAt: new Date(expires_at * 1000),
         isActive: true,
       },
     });
