@@ -1,64 +1,86 @@
-// ScriptTags 설치 API 엔드포인트
+// src/app/api/scripttags/install/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { Cafe24ScriptTags } from '@/lib/cafe24-scripttags';
-
-interface ScriptTag {
-  src?: string;
-  script_no?: number;
-}
-
-interface ScriptTagsResponse {
-  scripttags?: ScriptTag[];
-  scripttag?: ScriptTag;
-}
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
-    try {
-        const accessToken = request.cookies.get('cafe24_access_token')?.value;
-        const mallId = request.cookies.get('cafe24_mall_id')?.value;
+  try {
+    const body = await request.json();
+    const { mall_id } = body;
 
-        if (!accessToken || !mallId) {
-            return NextResponse.json({
-                success: false,
-                message: '카페24 인증이 필요합니다'
-            }, { status: 401 });
-        }
+    console.log('📥 ScriptTag 설치 요청:', { mall_id });
 
-        const scriptTags = new Cafe24ScriptTags();
-        
-        const existingScripts: ScriptTagsResponse = await scriptTags.getScriptTags(mallId, accessToken);
-        
-        const isAlreadyInstalled = existingScripts.scripttags?.some(
-            (script) => script.src?.includes('review-button.js')
-        );
-
-        if (isAlreadyInstalled) {
-            return NextResponse.json({
-                success: true,
-                message: '리뷰투언 스크립트가 이미 설치되어 있습니다',
-                status: 'already_installed'
-            });
-        }
-
-        const result: ScriptTagsResponse = await scriptTags.createScriptTag(mallId, accessToken);
-
-        if (result.scripttag) {
-            return NextResponse.json({
-                success: true,
-                message: '리뷰투언 스크립트가 성공적으로 설치되었습니다',
-                status: 'newly_installed',
-                scriptTag: result.scripttag
-            });
-        } else {
-            throw new Error('스크립트 설치에 실패했습니다');
-        }
-
-    } catch (error) {
-        console.error('ScriptTags API error:', error);
-        
-        return NextResponse.json({
-            success: false,
-            message: error instanceof Error ? error.message : '스크립트 설치 중 오류가 발생했습니다'
-        }, { status: 500 });
+    if (!mall_id) {
+      return NextResponse.json(
+        { success: false, message: 'mall_id가 필요합니다' },
+        { status: 400 }
+      );
     }
+
+    // ✅ DB에서 토큰 가져오기
+    const mallSettings = await prisma.mallSettings.findUnique({
+      where: { mallId: mall_id },
+    });
+
+    if (!mallSettings || !mallSettings.accessToken) {
+      console.error('❌ DB에 토큰 없음:', mall_id);
+      return NextResponse.json(
+        { success: false, message: '카페24 OAuth 인증을 먼저 완료해주세요' },
+        { status: 401 }
+      );
+    }
+
+    const accessToken = mallSettings.accessToken;
+
+    console.log('✅ DB에서 토큰 가져옴:', { mall_id, token: accessToken.slice(0, 10) + '...' });
+
+    // ScriptTag 생성
+    const scriptTag = {
+      src: `${process.env.NEXTAUTH_URL}/review2earn-script.js`,
+      display_location: ['ORDER_BASKET', 'PRODUCT_DETAIL'],
+      exclude_path: [],
+      skin_no: [1],
+    };
+
+    const response = await fetch(
+      `https://${mall_id}.cafe24api.com/api/v2/admin/scripttags`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Cafe24-Api-Version': '2024-03-01',
+        },
+        body: JSON.stringify({ request: scriptTag }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ ScriptTag 생성 실패:', data);
+      return NextResponse.json(
+        { success: false, message: 'ScriptTag 생성 실패', details: data },
+        { status: response.status }
+      );
+    }
+
+    console.log('✅ ScriptTag 생성 성공:', data);
+
+    return NextResponse.json({
+      success: true,
+      message: 'ScriptTag 설치 완료!',
+      data: data.scripttag,
+    });
+
+  } catch (error) {
+    console.error('❌ ScriptTag 설치 에러:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'ScriptTag 설치 중 에러 발생',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
+  }
 }

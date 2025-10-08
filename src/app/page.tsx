@@ -18,7 +18,9 @@ interface ConnectionResult {
 interface ScriptTagResult {
   success: boolean;
   message?: string;
-  data?: unknown;
+  data?: {
+    src?: string;
+  };
   scriptLocation?: string;
   nextStep?: string;
   error?: string;
@@ -58,6 +60,11 @@ export default function Home() {
   const [isUninstalling, setIsUninstalling] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [mallIdInput, setMallIdInput] = useState('');
+  
+  // ✅ ScriptTag 자동 설치용 state 추가
+  const [scriptTagLoading, setScriptTagLoading] = useState(false);
+  const [scriptTagMessage, setScriptTagMessage] = useState('');
+  const [scriptTagStatus, setScriptTagStatus] = useState<'success' | 'error' | ''>('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -176,85 +183,120 @@ export default function Home() {
     }
   };
 
+  // ✅ ScriptTag 자동 설치 함수 추가
+  const handleScriptTagInstall = async () => {
+    try {
+      const storedMallId = localStorage.getItem('cafe24_mall_id') || mallIdInput || 'dhdshop';
+      
+      setScriptTagLoading(true);
+      setScriptTagMessage('ScriptTag 설치 중...');
+      setScriptTagStatus('');
+
+      const response = await fetch('/api/scripttags/install', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mall_id: storedMallId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setScriptTagMessage(`✅ ScriptTag 설치 완료!\n\nScript URL: ${data.data?.src || 'N/A'}`);
+        setScriptTagStatus('success');
+      } else {
+        setScriptTagMessage(`❌ 설치 실패: ${data.message}\n\n먼저 카페24 OAuth 인증을 완료해주세요.`);
+        setScriptTagStatus('error');
+      }
+    } catch (error) {
+      console.error('ScriptTag 설치 에러:', error);
+      setScriptTagMessage('❌ ScriptTag 설치 중 에러가 발생했습니다.');
+      setScriptTagStatus('error');
+    } finally {
+      setScriptTagLoading(false);
+    }
+  };
+
   const installScriptTag = async () => {
-  if (!connectionResult?.success) {
-    alert('먼저 카페24 연결 테스트를 완료해주세요.');
-    return;
-  }
+    if (!connectionResult?.success) {
+      alert('먼저 카페24 연결 테스트를 완료해주세요.');
+      return;
+    }
 
-  setIsInstallingScript(true);
-  setScriptTagResult(null);
+    setIsInstallingScript(true);
+    setScriptTagResult(null);
 
-  try {
-    const accessToken = localStorage.getItem('cafe24_access_token');
-    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+    try {
+      const accessToken = localStorage.getItem('cafe24_access_token');
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
-    const response = await fetch('/api/scripttags', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken || ''}`,
-        'X-Mall-Id': mallId || ''
-      },
-      body: JSON.stringify({
-        mallId: mallId,
-        accessToken: accessToken
-      })
-    });
+      const response = await fetch('/api/scripttags', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken || ''}`,
+          'X-Mall-Id': mallId || ''
+        },
+        body: JSON.stringify({
+          mallId: mallId,
+          accessToken: accessToken
+        })
+      });
 
-    const data = await response.json();
-    setScriptTagResult(data);
-  } catch (error) {
-    console.error('ScriptTag install error:', error);
-    setScriptTagResult({
-      success: false,
-      error: 'ScriptTag 설치 중 오류가 발생했습니다.'
-    });
-  } finally {
-    setIsInstallingScript(false);
-  }
-};
+      const data = await response.json();
+      setScriptTagResult(data);
+    } catch (error) {
+      console.error('ScriptTag install error:', error);
+      setScriptTagResult({
+        success: false,
+        error: 'ScriptTag 설치 중 오류가 발생했습니다.'
+      });
+    } finally {
+      setIsInstallingScript(false);
+    }
+  };
 
+  const uninstallScriptTag = async () => {
+    if (!connectionResult?.success) {
+      alert('먼저 카페24 연결 테스트를 완료해주세요.');
+      return;
+    }
 
- const uninstallScriptTag = async () => {
-  if (!connectionResult?.success) {
-    alert('먼저 카페24 연결 테스트를 완료해주세요.');
-    return;
-  }
+    setIsUninstalling(true);
+    setUninstallResult(null);
 
-  setIsUninstalling(true);
-  setUninstallResult(null);
+    try {
+      const accessToken = localStorage.getItem('cafe24_access_token');
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
-  try {
-    const accessToken = localStorage.getItem('cafe24_access_token');
-    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+      const response = await fetch('/api/scripttags/uninstall', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken || ''}`,
+          'X-Mall-Id': mallId || ''
+        },
+        body: JSON.stringify({
+          mallId: mallId,
+          accessToken: accessToken
+        })
+      });
 
-    const response = await fetch('/api/scripttags/uninstall', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken || ''}`,
-        'X-Mall-Id': mallId || ''
-      },
-      body: JSON.stringify({
-        mallId: mallId,
-        accessToken: accessToken
-      })
-    });
-
-    const data = await response.json();
-    setUninstallResult(data);
-  } catch (error) {
-    console.error('ScriptTag uninstall error:', error);
-    setUninstallResult({
-      success: false,
-      error: 'ScriptTag 제거 중 오류가 발생했습니다.'
-    });
-  } finally {
-    setIsUninstalling(false);
-  }
-};
-
+      const data = await response.json();
+      setUninstallResult(data);
+    } catch (error) {
+      console.error('ScriptTag uninstall error:', error);
+      setUninstallResult({
+        success: false,
+        error: 'ScriptTag 제거 중 오류가 발생했습니다.'
+      });
+    } finally {
+      setIsUninstalling(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
@@ -445,107 +487,50 @@ export default function Home() {
           )}
         </div>
 
-       {/* Step 2: ScriptTags API 설치/제거 */}
-<div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-  <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-    <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
-    Review2Earn 스크립트 설치/제거
-  </h2>
-  
-  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-    <p className="text-sm text-yellow-800">
-      🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 Review2Earn 참여 동의 기능을 자동으로 삽입 또는 제거합니다.
-    </p>
-    <p className="text-xs text-yellow-700 mt-2">
-      ℹ️ 설치 후 리뷰 작성자는 Review2Earn에 참여할 수 있으며, 참여 시 추천 링크를 받게 됩니다.
-    </p>
-  </div>
-
-  {/* 버튼들... */}
-</div>
-
-{/* Step 3: 테스트 가이드 */}
-<div className="bg-white rounded-lg shadow-lg p-8">
-  <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-    <span className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
-    동작 확인 방법
-  </h2>
-  
-  <div className="space-y-6">
-    <div className="flex items-start space-x-3">
-      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
-      <div>
-        <h3 className="font-semibold text-gray-800 mb-2">ScriptTag 설치 확인</h3>
-        <p className="text-gray-600 text-sm">위의 Step 2에서 &ldquo;✅ 설치 성공!&rdquo; 메시지가 나타났는지 확인하세요.</p>
-      </div>
-    </div>
-    
-    <div className="flex items-start space-x-3">
-      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
-      <div>
-        <h3 className="font-semibold text-gray-800 mb-2">쇼핑몰 리뷰 페이지 접속</h3>
-        <p className="text-gray-600 text-sm mb-2">
-          카페24 쇼핑몰에 접속합니다:
-        </p>
-        <p className="text-xs text-gray-500">
-          예: https://[Mall ID].cafe24.com
-        </p>
-      </div>
-    </div>
-    
-    <div className="flex items-start space-x-3">
-      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">3</div>
-      <div>
-        <h3 className="font-semibold text-gray-800 mb-2">리뷰 작성 페이지 이동</h3>
-        <p className="text-gray-600 text-sm">
-          상품 페이지 → &ldquo;리뷰 쓰기&rdquo; 버튼 클릭 → 리뷰 작성 페이지로 이동
-        </p>
-      </div>
-    </div>
-    
-    <div className="flex items-start space-x-3">
-      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">4</div>
-      <div>
-        <h3 className="font-semibold text-gray-800 mb-2">Review2Earn 참여 옵션 확인</h3>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
-          <p className="text-green-800 text-sm font-semibold">
-            ✅ &ldquo;Review2Earn에 참여하시겠습니까?&rdquo; 체크박스가 나타나야 합니다!
-          </p>
+        {/* ✅ Step 2: ScriptTag 자동 설치 (새로 추가!) */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+            <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
+            ScriptTag 자동 설치
+          </h2>
+          
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              🚀 버튼 클릭 한 번으로 리뷰 작성 페이지에 <strong>&ldquo;Review2Earn 참여 동의&rdquo;</strong> 체크박스를 자동으로 설치합니다.
+            </p>
+            <p className="text-xs text-yellow-700 mt-2">
+              ℹ️ 설치 후 리뷰 작성자는 추천 링크를 받을 수 있습니다.
+            </p>
+          </div>
+          
+          <button
+            onClick={handleScriptTagInstall}
+            disabled={scriptTagLoading}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {scriptTagLoading ? '설치 중...' : '🚀 ScriptTag 설치'}
+          </button>
+          
+          {scriptTagMessage && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              scriptTagStatus === 'success' 
+                ? 'bg-green-50 border border-green-200' 
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <p className={`text-sm whitespace-pre-wrap ${
+                scriptTagStatus === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {scriptTagMessage}
+              </p>
+            </div>
+          )}
         </div>
-        <p className="text-gray-600 text-sm">
-          체크 후 리뷰를 제출하면 추천 링크가 생성되고, 이 링크로 다른 사용자가 구매하면 리뷰 작성자는 적립금을 받습니다.
-        </p>
-      </div>
-    </div>
 
-    <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
-      <h4 className="font-semibold text-gray-800 mb-2">🔧 문제 해결</h4>
-      <ul className="text-sm text-gray-600 space-y-1">
-        <li>• 옵션이 안 보인다면: 브라우저 콘솔(F12)에서 오류 확인</li>
-        <li>• 스크립트 로딩 실패: 2-3초 기다린 후 페이지 새로고침</li>
-        <li>• 동의 API 실패: 네트워크 탭에서 /api/consent 확인</li>
-      </ul>
-    </div>
-
-    <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-      <h4 className="font-semibold text-gray-800 mb-2">📊 전체 플로우</h4>
-      <ol className="text-sm text-gray-600 space-y-2">
-        <li><strong>1. 리뷰 작성자(A):</strong> 리뷰 작성 + Review2Earn 참여 동의</li>
-        <li><strong>2. 시스템:</strong> 추천 링크 생성 (예: /product/100?ref=R2E...)</li>
-        <li><strong>3. 공유:</strong> 작성자(A)가 SNS/블로그에 추천 링크 공유</li>
-        <li><strong>4. 구매자(B):</strong> 추천 링크 클릭 → 상품 구매</li>
-        <li><strong>5. 보상:</strong> 작성자(A)에게 구매 금액의 1% 적립금 지급</li>
-      </ol>
-    </div>
-  </div>
-</div>
-
-
-        {/* Step 3: 테스트 가이드 */}
+        {/* Step 3: 동작 확인 */}
         <div className="bg-white rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
             <span className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
-            실제 테스트 방법
+            동작 확인 방법
           </h2>
           
           <div className="space-y-6">
@@ -560,7 +545,7 @@ export default function Home() {
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
               <div>
-                <h3 className="font-semibold text-gray-800 mb-2">테스트 쇼핑몰 접속</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">쇼핑몰 리뷰 페이지 접속</h3>
                 <p className="text-gray-600 text-sm mb-2">
                   카페24 쇼핑몰에 접속합니다:
                 </p>
@@ -575,7 +560,7 @@ export default function Home() {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-2">리뷰 작성 페이지 이동</h3>
                 <p className="text-gray-600 text-sm">
-                  상품 페이지 → &ldquo;상품후기&rdquo; 또는 &ldquo;리뷰 쓰기&rdquo; 버튼 클릭 → 리뷰 작성 페이지로 이동
+                  상품 페이지 → &ldquo;리뷰 쓰기&rdquo; 버튼 클릭 → 리뷰 작성 페이지로 이동
                 </p>
               </div>
             </div>
@@ -583,14 +568,14 @@ export default function Home() {
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">4</div>
               <div>
-                <h3 className="font-semibold text-gray-800 mb-2">추천인 동의 버튼 확인</h3>
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-2">
-                  <p className="text-orange-800 text-sm font-semibold">
-                    🎁 &ldquo;추천인 되기에 동의합니다&rdquo; 버튼이 나타나야 합니다!
+                <h3 className="font-semibold text-gray-800 mb-2">Review2Earn 참여 옵션 확인</h3>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
+                  <p className="text-green-800 text-sm font-semibold">
+                    ✅ &ldquo;Review2Earn에 참여하시겠습니까?&rdquo; 체크박스가 나타나야 합니다!
                   </p>
                 </div>
                 <p className="text-gray-600 text-sm">
-                  버튼을 클릭하면 추천인으로 등록되고, 이후 다른 사용자가 이 리뷰를 보고 구매하면 리뷰 작성자는 보상을 받습니다.
+                  체크 후 리뷰를 제출하면 추천 링크가 생성되고, 이 링크로 다른 사용자가 구매하면 리뷰 작성자는 적립금을 받습니다.
                 </p>
               </div>
             </div>
@@ -598,10 +583,21 @@ export default function Home() {
             <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
               <h4 className="font-semibold text-gray-800 mb-2">🔧 문제 해결</h4>
               <ul className="text-sm text-gray-600 space-y-1">
-                <li>• 버튼이 안 보인다면: 브라우저 콘솔(F12)에서 오류 확인</li>
+                <li>• 옵션이 안 보인다면: 브라우저 콘솔(F12)에서 오류 확인</li>
                 <li>• 스크립트 로딩 실패: 2-3초 기다린 후 페이지 새로고침</li>
-                <li>• 쿠폰 생성 실패: 로컬스토리지 허용 여부 확인</li>
+                <li>• 동의 API 실패: 네트워크 탭에서 /api/consent 확인</li>
               </ul>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+              <h4 className="font-semibold text-gray-800 mb-2">📊 전체 플로우</h4>
+              <ol className="text-sm text-gray-600 space-y-2">
+                <li><strong>1. 리뷰 작성자(A):</strong> 리뷰 작성 + Review2Earn 참여 동의</li>
+                <li><strong>2. 시스템:</strong> 추천 링크 생성 (예: /product/100?ref=R2E...)</li>
+                <li><strong>3. 공유:</strong> 작성자(A)가 SNS/블로그에 추천 링크 공유</li>
+                <li><strong>4. 구매자(B):</strong> 추천 링크 클릭 → 상품 구매</li>
+                <li><strong>5. 보상:</strong> 작성자(A)에게 구매 금액의 1% 적립금 지급</li>
+              </ol>
             </div>
           </div>
         </div>
