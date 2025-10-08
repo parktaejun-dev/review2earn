@@ -172,39 +172,40 @@ export default function Home() {
   }
 
   const verifyToken = async () => {
-    setIsVerifying(true);
-    setVerifyResult(null);
+  setIsVerifying(true);
+  setVerifyResult(null);
 
-    try {
-      const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+  try {
+    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
-      if (!accessToken) {
-        alert('먼저 OAuth 인증을 완료해주세요.');
-        setIsVerifying(false);
-        return;
-      }
-
-      const response = await fetch('/api/verify-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ accessToken, mallId })
-      });
-
-      const data = await response.json();
-      setVerifyResult(data);
-    } catch (error) {
-      console.error('Token verification error:', error);
-      setVerifyResult({
-        success: false,
-        error: '토큰 검증 중 오류가 발생했습니다.'
-      });
-    } finally {
+    if (!mallId) {
+      alert('Mall ID를 입력하세요.');
       setIsVerifying(false);
+      return;
     }
-  };
+
+    // ✅ 수정: /api/oauth/verify 호출
+    const response = await fetch('/api/oauth/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ mallId })
+    });
+
+    const data = await response.json();
+    setVerifyResult(data);
+  } catch (error) {
+    console.error('Token verification error:', error);
+    setVerifyResult({
+      success: false,
+      error: '토큰 검증 중 오류가 발생했습니다.'
+    });
+  } finally {
+    setIsVerifying(false);
+  }
+};
+
 
   const installScriptTag = async () => {
   if (!connectionResult?.success) {
