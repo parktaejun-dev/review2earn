@@ -1,4 +1,4 @@
-// src/app/page.tsx - ESLint 에러 수정 + Mall ID 입력 추가
+// src/app/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -23,6 +23,8 @@ interface ScriptTagResult {
   nextStep?: string;
   error?: string;
   details?: unknown;
+  removedCount?: number;
+  totalFound?: number;
 }
 
 interface VerifyTokenResult {
@@ -49,9 +51,11 @@ interface VerifyTokenResult {
 export default function Home() {
   const [connectionResult, setConnectionResult] = useState<ConnectionResult | null>(null);
   const [scriptTagResult, setScriptTagResult] = useState<ScriptTagResult | null>(null);
+  const [uninstallResult, setUninstallResult] = useState<ScriptTagResult | null>(null);
   const [verifyResult, setVerifyResult] = useState<VerifyTokenResult | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isInstallingScript, setIsInstallingScript] = useState(false);
+  const [isUninstalling, setIsUninstalling] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [mallIdInput, setMallIdInput] = useState('');
 
@@ -66,7 +70,10 @@ export default function Home() {
       console.log('✅ OAuth 토큰 감지 - localStorage에 저장');
       localStorage.setItem('cafe24_access_token', accessToken);
       if (refreshToken) localStorage.setItem('cafe24_refresh_token', refreshToken);
-      if (mallId) localStorage.setItem('cafe24_mall_id', mallId);
+      if (mallId) {
+        localStorage.setItem('cafe24_mall_id', mallId);
+        localStorage.setItem('user_mall_id', mallId);
+      }
       if (expiresIn) localStorage.setItem('cafe24_expires_in', expiresIn);
       
       window.history.replaceState({}, '', '/');
@@ -79,13 +86,12 @@ export default function Home() {
     }
   }, []);
 
-    const testConnection = async () => {
+  const testConnection = async () => {
     setIsConnecting(true);
     setConnectionResult(null);
 
     try {
-      // ✅ mall_id를 URL 파라미터로 전달 (DB에서 토큰 읽음)
-      const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
       const response = await fetch(`/api/test-connection?mall_id=${mallId}`);
       
       const data = await response.json();
@@ -101,41 +107,39 @@ export default function Home() {
     }
   };
 
-
   async function handleConnect() {
-  if (!mallIdInput.trim()) {
-    alert(' (예: dhdshop)');
-    return;
-  }
-  
-  setIsConnecting(true);
-  
-  try {
-    localStorage.setItem('user_mall_id', mallIdInput);
+    if (!mallIdInput.trim()) {
+      alert('쇼핑몰 ID를 입력하세요 (예: dhdshop)');
+      return;
+    }
     
-    const response = await fetch('/api/oauth/auth-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mallId: mallIdInput })
-    });
+    setIsConnecting(true);
+    
+    try {
+      localStorage.setItem('user_mall_id', mallIdInput);
+      
+      const response = await fetch('/api/oauth/auth-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mallId: mallIdInput })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.authUrl) {
-      sessionStorage.setItem('oauth_state', data.state);
-      window.location.href = data.authUrl;
-    } else {
-      console.error('OAuth URL 생성 실패:', data);
-      alert(`OAuth URL 생성에 실패했습니다: ${data.error || '알 수 없는 오류'}`);
+      if (data.authUrl) {
+        sessionStorage.setItem('oauth_state', data.state);
+        window.location.href = data.authUrl;
+      } else {
+        console.error('OAuth URL 생성 실패:', data);
+        alert(`OAuth URL 생성에 실패했습니다: ${data.error || '알 수 없는 오류'}`);
+        setIsConnecting(false);
+      }
+    } catch (error) {
+      console.error('OAuth 시작 실패:', error);
+      alert('OAuth 시작에 실패했습니다. API Route가 생성되었는지 확인하세요.');
       setIsConnecting(false);
     }
-  } catch (error) {
-    console.error('OAuth 시작 실패:', error);
-    alert('OAuth 시작에 실패했습니다. API Route가 생성되었는지 확인하세요.');
-    setIsConnecting(false);
   }
-}
-
 
   const verifyToken = async () => {
     setIsVerifying(true);
@@ -143,7 +147,7 @@ export default function Home() {
 
     try {
       const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
       if (!accessToken) {
         alert('먼저 OAuth 인증을 완료해주세요.');
@@ -173,43 +177,84 @@ export default function Home() {
   };
 
   const installScriptTag = async () => {
-    if (!connectionResult?.success) {
-      alert('먼저 카페24 연결 테스트를 완료해주세요.');
-      return;
-    }
+  if (!connectionResult?.success) {
+    alert('먼저 카페24 연결 테스트를 완료해주세요.');
+    return;
+  }
 
-    setIsInstallingScript(true);
-    setScriptTagResult(null);
+  setIsInstallingScript(true);
+  setScriptTagResult(null);
 
-    try {
-      const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = localStorage.getItem('cafe24_mall_id') || mallIdInput;
+  try {
+    const accessToken = localStorage.getItem('cafe24_access_token');
+    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
-      const response = await fetch('/api/scripttags', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'X-Mall-Id': mallId
-        },
-        body: JSON.stringify({
-          mallId: mallId,
-          accessToken: accessToken
-        })
-      });
+    const response = await fetch('/api/scripttags', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken || ''}`,
+        'X-Mall-Id': mallId || ''
+      },
+      body: JSON.stringify({
+        mallId: mallId,
+        accessToken: accessToken
+      })
+    });
 
-      const data = await response.json();
-      setScriptTagResult(data);
-    } catch (error) {
-      console.error('ScriptTag install error:', error);
-      setScriptTagResult({
-        success: false,
-        error: 'ScriptTag 설치 중 오류가 발생했습니다.'
-      });
-    } finally {
-      setIsInstallingScript(false);
-    }
-  };
+    const data = await response.json();
+    setScriptTagResult(data);
+  } catch (error) {
+    console.error('ScriptTag install error:', error);
+    setScriptTagResult({
+      success: false,
+      error: 'ScriptTag 설치 중 오류가 발생했습니다.'
+    });
+  } finally {
+    setIsInstallingScript(false);
+  }
+};
+
+
+ const uninstallScriptTag = async () => {
+  if (!connectionResult?.success) {
+    alert('먼저 카페24 연결 테스트를 완료해주세요.');
+    return;
+  }
+
+  setIsUninstalling(true);
+  setUninstallResult(null);
+
+  try {
+    const accessToken = localStorage.getItem('cafe24_access_token');
+    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+
+    const response = await fetch('/api/scripttags/uninstall', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken || ''}`,
+        'X-Mall-Id': mallId || ''
+      },
+      body: JSON.stringify({
+        mallId: mallId,
+        accessToken: accessToken
+      })
+    });
+
+    const data = await response.json();
+    setUninstallResult(data);
+  } catch (error) {
+    console.error('ScriptTag uninstall error:', error);
+    setUninstallResult({
+      success: false,
+      error: 'ScriptTag 제거 중 오류가 발생했습니다.'
+    });
+  } finally {
+    setIsUninstalling(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
@@ -219,7 +264,7 @@ export default function Home() {
             🎯 Review2Earn
           </h1>
           <p className="text-xl text-gray-600 mb-2">
-            카페24 리뷰 기반 할인 시스템 개발 도구
+            카페24 리뷰 기반 추천 구매 보상 시스템
           </p>
           <p className="text-sm text-gray-500">
             Step 1: OAuth 인증 및 ScriptTags API 구현
@@ -259,17 +304,16 @@ export default function Home() {
           </div>
 
           <button
-  onClick={handleConnect}
-  disabled={isConnecting || !mallIdInput.trim()}
-  className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
-    isConnecting || !mallIdInput.trim()
-      ? 'bg-gray-400 cursor-not-allowed'
-      : 'bg-purple-500 hover:bg-purple-600 transform hover:scale-105'
-  }`}
->
-  {isConnecting ? '🔄 연결 중...' : '🔗 카페24 연결 시작'}
-</button>
-
+            onClick={handleConnect}
+            disabled={isConnecting || !mallIdInput.trim()}
+            className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+              isConnecting || !mallIdInput.trim()
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-purple-500 hover:bg-purple-600 transform hover:scale-105'
+            }`}
+          >
+            {isConnecting ? '🔄 연결 중...' : '🔗 카페24 연결 시작'}
+          </button>
         </div>
 
         {/* Step 1: 카페24 연결 테스트 */}
@@ -401,30 +445,44 @@ export default function Home() {
           )}
         </div>
 
-        {/* Step 2: ScriptTags API 설치 */}
+        {/* Step 2: ScriptTags API 설치/제거 */}
         <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
             <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
-            리뷰 버튼 ScriptTag 설치
+            리뷰 추천인 동의 버튼 설치/제거
           </h2>
           
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 &ldquo;할인 쿠폰 받기&rdquo; 버튼을 자동으로 삽입합니다.
+              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 &ldquo;추천인 되기에 동의합니다&rdquo; 버튼을 자동으로 삽입 또는 제거합니다.
             </p>
           </div>
 
-          <button
-            onClick={installScriptTag}
-            disabled={isInstallingScript || !connectionResult?.success}
-            className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
-              isInstallingScript || !connectionResult?.success
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-500 hover:bg-green-600 transform hover:scale-105'
-            }`}
-          >
-            {isInstallingScript ? '⏳ 설치 중...' : '🚀 ScriptTag 설치하기'}
-          </button>
+          <div className="flex space-x-4">
+            <button
+              onClick={installScriptTag}
+              disabled={isInstallingScript || !connectionResult?.success}
+              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+                isInstallingScript || !connectionResult?.success
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 transform hover:scale-105'
+              }`}
+            >
+              {isInstallingScript ? '⏳ 설치 중...' : '🚀 ScriptTag 설치하기'}
+            </button>
+            
+            <button
+              onClick={uninstallScriptTag}
+              disabled={isUninstalling || !connectionResult?.success}
+              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+                isUninstalling || !connectionResult?.success
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-red-500 hover:bg-red-600 transform hover:scale-105'
+              }`}
+            >
+              {isUninstalling ? '⏳ 제거 중...' : '🗑️ ScriptTag 제거하기'}
+            </button>
+          </div>
 
           {scriptTagResult && (
             <div className={`mt-4 p-4 rounded-lg ${
@@ -445,6 +503,32 @@ export default function Home() {
                 <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
                 <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
                   {JSON.stringify(scriptTagResult, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+
+          {uninstallResult && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              uninstallResult.success 
+                ? 'bg-green-50 border border-green-200' 
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className="mb-3">
+                <span className={uninstallResult.success ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                  {uninstallResult.success ? '✅ 제거 성공!' : '❌ 제거 실패'}
+                </span>
+                <p className="text-sm text-gray-600 mt-1">{uninstallResult.message}</p>
+                {uninstallResult.removedCount !== undefined && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    제거됨: {uninstallResult.removedCount} / 발견: {uninstallResult.totalFound}
+                  </p>
+                )}
+              </div>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
+                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
+                  {JSON.stringify(uninstallResult, null, 2)}
                 </pre>
               </details>
             </div>
@@ -493,14 +577,14 @@ export default function Home() {
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">4</div>
               <div>
-                <h3 className="font-semibold text-gray-800 mb-2">할인 버튼 확인</h3>
+                <h3 className="font-semibold text-gray-800 mb-2">추천인 동의 버튼 확인</h3>
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-2">
                   <p className="text-orange-800 text-sm font-semibold">
-                    🎁 &ldquo;할인 쿠폰 받기&rdquo; 버튼이 나타나야 합니다!
+                    🎁 &ldquo;추천인 되기에 동의합니다&rdquo; 버튼이 나타나야 합니다!
                   </p>
                 </div>
                 <p className="text-gray-600 text-sm">
-                  버튼을 클릭하면 10-30% 할인 쿠폰이 발급되고, 팝업이 표시됩니다.
+                  버튼을 클릭하면 추천인으로 등록되고, 이후 다른 사용자가 이 리뷰를 보고 구매하면 리뷰 작성자는 보상을 받습니다.
                 </p>
               </div>
             </div>

@@ -1,58 +1,102 @@
-// ScriptTags 제거 API 엔드포인트
+// src/app/api/scripttags/uninstall/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { Cafe24ScriptTags } from '@/lib/cafe24-scripttags';
 
-interface ScriptTag {
-  src?: string;
-  script_no?: number;
-}
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { mallId, accessToken } = body;
 
-interface ScriptTagsResponse {
-  scripttags?: ScriptTag[];
-}
+    if (!mallId || !accessToken) {
+      return NextResponse.json({
+        success: false,
+        error: 'mallId와 accessToken이 필요합니다.'
+      }, { status: 400 });
+    }
 
-export async function DELETE(request: NextRequest) {
-    try {
-        const accessToken = request.cookies.get('cafe24_access_token')?.value;
-        const mallId = request.cookies.get('cafe24_mall_id')?.value;
+    console.log('🗑️ ScriptTag 제거 시작:', mallId);
 
-        if (!accessToken || !mallId) {
-            return NextResponse.json({
-                success: false,
-                message: '카페24 인증이 필요합니다'
-            }, { status: 401 });
-        }
+    // 1. 현재 설치된 ScriptTag 조회
+    const listUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
+    const listResponse = await fetch(listUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': '2024-03-01'
+      }
+    });
 
-        const scriptTags = new Cafe24ScriptTags();
-        
-        const existingScripts: ScriptTagsResponse = await scriptTags.getScriptTags(mallId, accessToken);
-        
-        const reviewScript = existingScripts.scripttags?.find(
-            (script) => script.src?.includes('review-button.js')
-        );
+    if (!listResponse.ok) {
+      const errorData = await listResponse.json();
+      return NextResponse.json({
+        success: false,
+        error: 'ScriptTag 목록 조회 실패',
+        details: errorData
+      }, { status: listResponse.status });
+    }
 
-        if (!reviewScript || !reviewScript.script_no) {
-            return NextResponse.json({
-                success: true,
-                message: '제거할 리뷰투언 스크립트가 없습니다',
-                status: 'not_installed'
-            });
-        }
+    const listData = await listResponse.json();
+    
+    // 2. review2earn 관련 ScriptTag 찾기
+    const review2earnTags = listData.scripttags?.filter((tag: any) => 
+      tag.src?.includes('review2earn') || 
+      tag.display_location?.includes('REVIEW_WRITE') ||
+      tag.src?.includes('review-button')
+    );
 
-        await scriptTags.deleteScriptTag(mallId, accessToken, reviewScript.script_no);
+    if (!review2earnTags || review2earnTags.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: '제거할 ScriptTag가 없습니다.',
+        removedCount: 0
+      });
+    }
 
-        return NextResponse.json({
-            success: true,
-            message: '리뷰투언 스크립트가 성공적으로 제거되었습니다',
-            status: 'removed'
+    console.log(`📋 발견된 ScriptTag: ${review2earnTags.length}개`);
+
+    // 3. 모든 review2earn ScriptTag 제거
+    const deleteResults = [];
+    for (const tag of review2earnTags) {
+      try {
+        const deleteUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags/${tag.script_no}`;
+        const deleteResponse = await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Cafe24-Api-Version': '2024-03-01'
+          }
         });
 
-    } catch (error) {
-        console.error('ScriptTags DELETE error:', error);
-        
-        return NextResponse.json({
-            success: false,
-            message: '스크립트 제거 중 오류가 발생했습니다'
-        }, { status: 500 });
+        if (deleteResponse.ok) {
+          deleteResults.push({ script_no: tag.script_no, success: true });
+          console.log(`✅ ScriptTag 제거 성공: ${tag.script_no}`);
+        } else {
+          const errorData = await deleteResponse.json();
+          deleteResults.push({ script_no: tag.script_no, success: false, error: errorData });
+          console.error(`❌ ScriptTag 제거 실패: ${tag.script_no}`, errorData);
+        }
+      } catch (error) {
+        console.error(`❌ ScriptTag 제거 중 오류: ${tag.script_no}`, error);
+        deleteResults.push({ script_no: tag.script_no, success: false, error: String(error) });
+      }
     }
+
+    const successCount = deleteResults.filter(r => r.success).length;
+
+    return NextResponse.json({
+      success: successCount > 0,
+      message: `${successCount}개의 ScriptTag를 제거했습니다.`,
+      removedCount: successCount,
+      totalFound: review2earnTags.length,
+      details: deleteResults
+    });
+
+  } catch (error: any) {
+    console.error('❌ ScriptTag uninstall error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error.message
+    }, { status: 500 });
+  }
 }
