@@ -3,10 +3,17 @@
   'use strict';
 
   // ============================================
-  // 0. 리뷰 작성 페이지 확인
+  // 0. 리뷰 작성 페이지 확인 (수정!)
   // ============================================
-  if (!window.location.pathname.includes('/board/product/write')) {
-    return; // 리뷰 작성 페이지가 아니면 종료
+  const path = window.location.pathname;
+  const isReviewPage = 
+    path.includes('/board/product/write') ||  // ✅ /board/product/write.html
+    path.includes('/board/review/write') ||
+    path.includes('write.html');
+
+  if (!isReviewPage) {
+    console.log('ℹ️ Review2Earn: 리뷰 작성 페이지가 아닙니다.', path);
+    return;
   }
 
   console.log('✅ Review2Earn: 리뷰 작성 페이지 감지');
@@ -14,7 +21,8 @@
   // ============================================
   // 1. Mall ID 추출
   // ============================================
-  const mallId = window.location.hostname.split('.')[0];
+  const hostname = window.location.hostname;
+  const mallId = hostname.split('.')[0];
   console.log('🏪 Mall ID:', mallId);
 
   // ============================================
@@ -25,6 +33,8 @@
 
   if (!productId) {
     console.error('❌ Review2Earn: 제품 ID를 찾을 수 없습니다.');
+    console.log('URL:', window.location.href);
+    console.log('Query Params:', window.location.search);
     return;
   }
 
@@ -109,25 +119,32 @@
       </div>
     `;
 
-    // 폼 찾기
-    const form = document.querySelector('form[name="boardWriteForm"]');
+    // 폼 찾기 (여러 패턴 시도)
+    const form = document.querySelector('form[name="boardWriteForm"]') ||
+                 document.querySelector('form#boardWriteForm') ||
+                 document.querySelector('form[action*="write"]');
     
     if (!form) {
       console.error('❌ Review2Earn: 리뷰 작성 폼을 찾을 수 없습니다.');
+      console.log('페이지 내 모든 폼:', document.querySelectorAll('form'));
       return;
     }
+
+    console.log('✅ 폼 발견:', form);
 
     // 제출 버튼 찾기 (여러 패턴 시도)
     const submitButton = form.querySelector('button[type="submit"]') || 
                          form.querySelector('input[type="submit"]') ||
                          form.querySelector('a.btnSubmit') ||
-                         form.querySelector('.btn-submit');
+                         form.querySelector('.btn-submit') ||
+                         form.querySelector('button.submit') ||
+                         form.querySelector('[class*="submit"]');
     
     if (submitButton) {
       submitButton.insertAdjacentHTML('beforebegin', checkboxHtml);
       console.log(`✅ Review2Earn: 체크박스 삽입 완료 (리뷰 작성자: ${reviewerPercent}%, 구매자: ${buyerPercent}%)`);
     } else {
-      console.error('❌ Review2Earn: 제출 버튼을 찾을 수 없습니다.');
+      console.warn('⚠️ Review2Earn: 제출 버튼을 찾을 수 없습니다. 폼 끝에 삽입합니다.');
       // 폼 끝에 삽입 (대체 방법)
       form.insertAdjacentHTML('beforeend', checkboxHtml);
       console.log('⚠️ Review2Earn: 폼 끝에 체크박스 삽입');
@@ -145,7 +162,7 @@
 
     if (!checkbox || !checkbox.checked) {
       console.log('ℹ️ Review2Earn: 동의하지 않음');
-      return; // 동의하지 않으면 무시
+      return;
     }
 
     console.log('✅ Review2Earn: 동의 체크됨, API 호출 준비');
@@ -154,7 +171,7 @@
     setTimeout(async () => {
       try {
         const customerId = getCookie('member_id'); // 카페24 회원 ID
-        const customerEmail = getCookie('member_email'); // 카페24 이메일 (선택)
+        const customerEmail = getCookie('member_email'); // 카페24 이메일
         
         if (!customerId) {
           console.error('❌ Review2Earn: 회원 ID를 찾을 수 없습니다.');
@@ -162,9 +179,13 @@
           return;
         }
 
+        const mallId = window.location.hostname.split('.')[0];
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('product_no');
+
         const payload = {
           mallId,
-          reviewId: 'pending', // Webhook으로 나중에 업데이트
+          reviewId: 'pending',
           productId,
           customerId,
           customerEmail: customerEmail || null
@@ -180,11 +201,6 @@
 
         const data = await response.json();
         console.log('✅ Review2Earn 참여 완료:', data);
-
-        // 추천 링크 안내 (선택)
-        if (data.success && data.referralLink) {
-          alert(`🎉 Review2Earn 참여 완료!\n\n추천 링크:\n${data.referralLink}\n\n이 링크를 공유하면 구매 시 적립금을 받을 수 있습니다!`);
-        }
 
       } catch (error) {
         console.error('❌ Review2Earn API 오류:', error);
