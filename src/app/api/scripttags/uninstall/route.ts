@@ -1,6 +1,16 @@
 // src/app/api/scripttags/uninstall/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
+interface ScriptTag {
+  script_no: number;
+  src: string;
+  display_location: string[];
+}
+
+interface ListResponse {
+  scripttags: ScriptTag[];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,7 +25,6 @@ export async function POST(request: NextRequest) {
 
     console.log('🗑️ ScriptTag 제거 시작:', mallId);
 
-    // 1. 현재 설치된 ScriptTag 조회
     const listUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     const listResponse = await fetch(listUrl, {
       method: 'GET',
@@ -35,10 +44,10 @@ export async function POST(request: NextRequest) {
       }, { status: listResponse.status });
     }
 
-    const listData = await listResponse.json();
+    const listData = await listResponse.json() as ListResponse;
     
-    // 2. review2earn 관련 ScriptTag 찾기
-    const review2earnTags = listData.scripttags?.filter((tag: any) => 
+    // ✅ any 제거: tag 타입 명시
+    const review2earnTags = listData.scripttags?.filter((tag: ScriptTag) => 
       tag.src?.includes('review2earn') || 
       tag.display_location?.includes('REVIEW_WRITE') ||
       tag.src?.includes('review-button')
@@ -54,7 +63,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`📋 발견된 ScriptTag: ${review2earnTags.length}개`);
 
-    // 3. 모든 review2earn ScriptTag 제거
     const deleteResults = [];
     for (const tag of review2earnTags) {
       try {
@@ -78,7 +86,11 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         console.error(`❌ ScriptTag 제거 중 오류: ${tag.script_no}`, error);
-        deleteResults.push({ script_no: tag.script_no, success: false, error: String(error) });
+        deleteResults.push({ 
+          script_no: tag.script_no, 
+          success: false, 
+          error: error instanceof Error ? error.message : String(error) 
+        });
       }
     }
 
@@ -92,11 +104,11 @@ export async function POST(request: NextRequest) {
       details: deleteResults
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ ScriptTag uninstall error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

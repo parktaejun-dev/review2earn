@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // ✅ Products API로 변경 (Shop API는 404)
     const apiUrl = `https://${mallId}.cafe24api.com/api/v2/admin/products?limit=1`;
     
     const cafe24Response = await fetch(apiUrl, {
@@ -55,11 +54,11 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Test Connection Error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
