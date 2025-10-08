@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model InstallationToken {
+  id            Int       @id @default(autoincrement())
+  mallId        String    @unique @map("mall_id")
+  accessToken   String    @map("access_token")
+  refreshToken  String?   @map("refresh_token")
+  expiresAt     DateTime? @map("expires_at")
+  scope         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("InstallationToken")
+}
+
+model ProductReward {
+  id              Int      @id @default(autoincrement())
+  mallId          String   @map("mall_id")
+  productNo       Int      @map("product_no")
+  recommenderRate Decimal  @map("recommender_rate") @db.Decimal(5, 2)
+  reviewerRate    Decimal  @map("reviewer_rate") @db.Decimal(5, 2)
+  operatorRate    Decimal  @map("operator_rate") @db.Decimal(5, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([mallId, productNo])
+  @@map("ProductReward")
+}
+
+model Review {
+  id            Int       @id @default(autoincrement())
+  mallId        String    @map("mall_id")
+  reviewNo      Int       @map("review_no")
+  orderId       String    @map("order_id")
+  productNo     Int       @map("product_no")
+  memberId      String    @map("member_id")
+  recommenderId String?   @map("recommender_id")
+  content       String?
+  rating        Int?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  rewards       Reward[]
+
+  @@unique([mallId, reviewNo])
+  @@map("Review")
+}
+
+model Reward {
+  id         Int      @id @default(autoincrement())
+  mallId     String   @map("mall_id")
+  reviewId   Int      @map("review_id")
+  memberId   String   @map("member_id")
+  rewardType String   @map("reward_type")
+  amount     Decimal  @db.Decimal(10, 2)
+  status     String   @default("pending")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  review     Review   @relation(fields: [reviewId], references: [id])
+
+  @@map("Reward")
+}
+
+model ReferralTracking {
+  id         Int      @id @default(autoincrement())
+  mallId     String   @map("mall_id")
+  referrerId String   @map("referrer_id")
+  referredId String   @map("referred_id")
+  productNo  Int      @map("product_no")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([mallId, referredId, productNo])
+  @@map("ReferralTracking")
+}
