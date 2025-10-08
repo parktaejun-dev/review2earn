@@ -2,121 +2,130 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+const CAFE24_CLIENT_ID = process.env.CAFE24_CLIENT_ID!;
+const CAFE24_CLIENT_SECRET = process.env.CAFE24_CLIENT_SECRET!;
+const CAFE24_REDIRECT_URI = process.env.CAFE24_REDIRECT_URI!;
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
     const state = searchParams.get('state');
-    const mallId = searchParams.get('mall_id') || 'dhdshop';
 
-    console.log('🔐 OAuth Callback received:', { code, state, mallId });
+    console.log('📥 OAuth Callback:', { code, state });
 
-    if (!code) {
-      console.error('❌ No authorization code received');
-      return NextResponse.redirect(new URL('/?error=no_code', request.url));
+    if (!code || !state) {
+      console.error('❌ Code 또는 State 없음');
+      return NextResponse.redirect(
+        new URL('/?error=missing_parameters', request.url)
+      );
     }
 
-    const clientId = process.env.NEXT_PUBLIC_CAFE24_CLIENT_ID!;
-    const clientSecret = process.env.CAFE24_CLIENT_SECRET!;
-    const redirectUri = `${process.env.NEXTAUTH_URL}/api/oauth/callback`;
+    // state 디코딩하여 mallId 추출
+    let mallId: string;
+    try {
+      const stateData = JSON.parse(
+        Buffer.from(state, 'base64').toString('utf-8')
+      );
+      mallId = stateData.mallId;
+      console.log('✅ State에서 mallId 추출:', mallId);
+    } catch (error) {
+      console.error('❌ State 디코딩 실패:', error);
+      return NextResponse.redirect(
+        new URL('/?error=invalid_state', request.url)
+      );
+    }
 
-    const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    if (!mallId) {
+      console.error('❌ mallId가 state에 없음');
+      return NextResponse.redirect(
+        new URL('/?error=missing_mall_id', request.url)
+      );
+    }
 
-    const tokenResponse = await fetch(
-      `https://${mallId}.cafe24api.com/api/v2/oauth/token`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${authHeader}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri,
-        }),
-      }
-    );
+    // Access Token 요청
+    console.log('🔄 Access Token 요청 시작...');
+    
+    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
+    
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: CAFE24_REDIRECT_URI,
+        client_id: CAFE24_CLIENT_ID,
+        client_secret: CAFE24_CLIENT_SECRET,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('❌ Token request failed:', errorText);
-      
+      console.error('❌ Token 교환 실패:', tokenData);
       return NextResponse.json(
         {
           success: false,
           error: 'Failed to obtain access token',
-          details: errorText
+          details: JSON.stringify(tokenData),
         },
         { status: 401 }
       );
     }
 
-    const tokenData = await tokenResponse.json();
-    console.log('✅ Token obtained:', tokenData);
+    console.log('✅ Access Token 획득 성공!');
 
-    // ✅ expires_in을 숫자로 변환!
-    const expiresInSeconds = parseInt(String(tokenData.expires_in || tokenData.expires_at || '7200'), 10);
+    const {
+      access_token,
+      refresh_token,
+      expires_at,
+      scopes,
+    } = tokenData;
+
+    // DB에 저장 (upsert)
+    console.log('💾 DB에 토큰 저장 중...');
     
-    // ✅ 유효성 검증
-    if (isNaN(expiresInSeconds) || expiresInSeconds <= 0) {
-      console.error('❌ Invalid expires_in:', tokenData.expires_in);
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid token expiry',
-          details: `expires_in: ${tokenData.expires_in}`
-        },
-        { status: 500 }
-      );
-    }
-
-    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
-
-    console.log('📅 Token expiry:', {
-      expiresInSeconds,
-      expiresAt: expiresAt.toISOString(),
-      isValid: !isNaN(expiresAt.getTime())
-    });
-
-    // MallSettings에 저장
     await prisma.mallSettings.upsert({
-      where: { mallId },
+      where: { mallId: mallId },
       update: {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token || null,
-        tokenExpiresAt: expiresAt,
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        expiresAt: new Date(expires_at * 1000),
+        scopes: scopes || [],
+        isActive: true,
+        updatedAt: new Date(),
       },
       create: {
-        mallId,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token || null,
-        tokenExpiresAt: expiresAt,
+        mallId: mallId,
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        expiresAt: new Date(expires_at * 1000),
+        scopes: scopes || [],
+        isActive: true,
       },
     });
 
-    console.log('✅ Token saved to database');
+    console.log('✅ DB 저장 완료!');
 
     // 프론트엔드로 리다이렉트
     const redirectUrl = new URL('/', request.url);
-    redirectUrl.searchParams.set('access_token', tokenData.access_token);
-    if (tokenData.refresh_token) {
-      redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
-    }
+    redirectUrl.searchParams.set('access_token', access_token);
+    redirectUrl.searchParams.set('refresh_token', refresh_token);
     redirectUrl.searchParams.set('mall_id', mallId);
-    redirectUrl.searchParams.set('expires_in', expiresInSeconds.toString());
+    redirectUrl.searchParams.set('expires_in', expires_at.toString());
+
+    console.log('✅ 프론트엔드로 리다이렉트');
 
     return NextResponse.redirect(redirectUrl);
-
+    
   } catch (error) {
-    console.error('❌ OAuth callback error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'OAuth callback failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
+    console.error('❌ OAuth Callback 에러:', error);
+    
+    return NextResponse.redirect(
+      new URL(`/?error=callback_failed&details=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`, request.url)
     );
   }
 }
