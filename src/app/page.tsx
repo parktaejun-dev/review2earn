@@ -18,9 +18,7 @@ interface ConnectionResult {
 interface ScriptTagResult {
   success: boolean;
   message?: string;
-  data?: {
-    src?: string;
-  };
+  data?: unknown;
   scriptLocation?: string;
   nextStep?: string;
   error?: string;
@@ -60,18 +58,42 @@ export default function Home() {
   const [isUninstalling, setIsUninstalling] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [mallIdInput, setMallIdInput] = useState('');
-  
-  // ✅ ScriptTag 자동 설치용 state 추가
-  const [scriptTagLoading, setScriptTagLoading] = useState(false);
-  const [scriptTagMessage, setScriptTagMessage] = useState('');
-  const [scriptTagStatus, setScriptTagStatus] = useState<'success' | 'error' | ''>('');
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    const mallId = params.get('mall_id');
-    const expiresIn = params.get('expires_in');
+    // 1. OAuth callback 처리 (새로 추가)
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthSuccess = urlParams.get('oauth_success');
+    const mallIdParam = urlParams.get('mall_id');
+    const errorParam = urlParams.get('error');
+    
+    if (errorParam) {
+      alert(`OAuth 실패: ${urlParams.get('message') || '알 수 없는 오류'}`);
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+    
+    if (oauthSuccess === 'true' && mallIdParam) {
+      // OAuth 성공 시 자동으로 mallId 설정
+      setMallIdInput(mallIdParam);
+      localStorage.setItem('user_mall_id', mallIdParam);
+      localStorage.setItem('cafe24_mall_id', mallIdParam);
+      
+      // URL 정리
+      window.history.replaceState({}, '', '/');
+      
+      // 연결 테스트 자동 실행
+      setTimeout(() => {
+        testConnection();
+      }, 500);
+      
+      return;
+    }
+
+    // 2. 기존 OAuth 토큰 처리 (기존 코드 유지)
+    const accessToken = urlParams.get('access_token');
+    const refreshToken = urlParams.get('refresh_token');
+    const mallId = urlParams.get('mall_id');
+    const expiresIn = urlParams.get('expires_in');
     
     if (accessToken) {
       console.log('✅ OAuth 토큰 감지 - localStorage에 저장');
@@ -87,6 +109,7 @@ export default function Home() {
       window.location.reload();
     }
 
+    // 3. 저장된 mallId 불러오기 (기존 코드 유지)
     const savedMallId = localStorage.getItem('user_mall_id');
     if (savedMallId) {
       setMallIdInput(savedMallId);
@@ -180,43 +203,6 @@ export default function Home() {
       });
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  // ✅ ScriptTag 자동 설치 함수 추가
-  const handleScriptTagInstall = async () => {
-    try {
-      const storedMallId = localStorage.getItem('cafe24_mall_id') || mallIdInput || 'dhdshop';
-      
-      setScriptTagLoading(true);
-      setScriptTagMessage('ScriptTag 설치 중...');
-      setScriptTagStatus('');
-
-      const response = await fetch('/api/scripttags/install', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mall_id: storedMallId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setScriptTagMessage(`✅ ScriptTag 설치 완료!\n\nScript URL: ${data.data?.src || 'N/A'}`);
-        setScriptTagStatus('success');
-      } else {
-        setScriptTagMessage(`❌ 설치 실패: ${data.message}\n\n먼저 카페24 OAuth 인증을 완료해주세요.`);
-        setScriptTagStatus('error');
-      }
-    } catch (error) {
-      console.error('ScriptTag 설치 에러:', error);
-      setScriptTagMessage('❌ ScriptTag 설치 중 에러가 발생했습니다.');
-      setScriptTagStatus('error');
-    } finally {
-      setScriptTagLoading(false);
     }
   };
 
@@ -395,7 +381,6 @@ export default function Home() {
                   <div className="text-sm text-gray-600 mt-2">
                     <div>쇼핑몰: {connectionResult.mall_id}</div>
                     <div>API 버전: {connectionResult.api_version}</div>
-                    <div>상품 수: {connectionResult.products_count}개</div>
                   </div>
                 </div>
               )}
@@ -487,46 +472,99 @@ export default function Home() {
           )}
         </div>
 
-        {/* ✅ Step 2: ScriptTag 자동 설치 (새로 추가!) */}
+        {/* Step 2: ScriptTags API 설치/제거 */}
         <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
             <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
-            ScriptTag 자동 설치
+            Review2Earn 스크립트 설치/제거
           </h2>
           
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
-              🚀 버튼 클릭 한 번으로 리뷰 작성 페이지에 <strong>&ldquo;Review2Earn 참여 동의&rdquo;</strong> 체크박스를 자동으로 설치합니다.
+              🚀 이 단계는 카페24 쇼핑몰의 <strong>리뷰 작성 페이지</strong>에 Review2Earn 참여 동의 기능을 자동으로 삽입 또는 제거합니다.
             </p>
             <p className="text-xs text-yellow-700 mt-2">
-              ℹ️ 설치 후 리뷰 작성자는 추천 링크를 받을 수 있습니다.
+              ℹ️ 설치 후 리뷰 작성자는 Review2Earn에 참여할 수 있으며, 참여 시 추천 링크를 받게 됩니다.
             </p>
           </div>
-          
-          <button
-            onClick={handleScriptTagInstall}
-            disabled={scriptTagLoading}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {scriptTagLoading ? '설치 중...' : '🚀 ScriptTag 설치'}
-          </button>
-          
-          {scriptTagMessage && (
+
+          <div className="flex gap-4">
+            <button
+              onClick={installScriptTag}
+              disabled={isInstallingScript || !connectionResult?.success}
+              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+                isInstallingScript || !connectionResult?.success
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 transform hover:scale-105'
+              }`}
+            >
+              {isInstallingScript ? '🔄 설치 중...' : '📦 ScriptTag 설치'}
+            </button>
+
+            <button
+              onClick={uninstallScriptTag}
+              disabled={isUninstalling || !connectionResult?.success}
+              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+                isUninstalling || !connectionResult?.success
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-red-500 hover:bg-red-600 transform hover:scale-105'
+              }`}
+            >
+              {isUninstalling ? '🔄 제거 중...' : '🗑️ ScriptTag 제거'}
+            </button>
+          </div>
+
+          {scriptTagResult && (
             <div className={`mt-4 p-4 rounded-lg ${
-              scriptTagStatus === 'success' 
+              scriptTagResult.success 
                 ? 'bg-green-50 border border-green-200' 
                 : 'bg-red-50 border border-red-200'
             }`}>
-              <p className={`text-sm whitespace-pre-wrap ${
-                scriptTagStatus === 'success' ? 'text-green-800' : 'text-red-800'
-              }`}>
-                {scriptTagMessage}
-              </p>
+              <div className="mb-2">
+                <span className={`font-semibold ${
+                  scriptTagResult.success ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {scriptTagResult.success ? '✅ 설치 성공!' : '❌ 설치 실패'}
+                </span>
+              </div>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
+                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
+                  {JSON.stringify(scriptTagResult, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+
+          {uninstallResult && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              uninstallResult.success 
+                ? 'bg-green-50 border border-green-200' 
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className="mb-2">
+                <span className={`font-semibold ${
+                  uninstallResult.success ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {uninstallResult.success ? '✅ 제거 성공!' : '❌ 제거 실패'}
+                </span>
+                {uninstallResult.removedCount !== undefined && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    제거된 ScriptTag: {uninstallResult.removedCount}개
+                  </div>
+                )}
+              </div>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium">상세 정보 보기</summary>
+                <pre className="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">
+                  {JSON.stringify(uninstallResult, null, 2)}
+                </pre>
+              </details>
             </div>
           )}
         </div>
 
-        {/* Step 3: 동작 확인 */}
+        {/* Step 3: 테스트 가이드 */}
         <div className="bg-white rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
             <span className="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
