@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 파라미터 추출
 function extractCallbackParams(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
@@ -34,7 +33,6 @@ function extractCallbackParams(request: NextRequest) {
   return { code, state };
 }
 
-// state에서 mallId 디코딩
 function decodeMallId(state: string): string {
   try {
     const stateData = JSON.parse(
@@ -51,7 +49,6 @@ function decodeMallId(state: string): string {
   }
 }
 
-// code → access_token 교환
 async function exchangeCodeForToken(mallId: string, code: string) {
   const authHeader = Buffer.from(
     `${CAFE24_CLIENT_ID}:${CAFE24_CLIENT_SECRET}`
@@ -82,36 +79,28 @@ async function exchangeCodeForToken(mallId: string, code: string) {
   return data;
 }
 
-// DB에 저장
+// ✅ tokenExpiresAt 제거!
 async function saveMallSettings(mallId: string, tokenData: any) {
-  const { access_token, refresh_token, expires_at, issued_at } = tokenData;
-
-  // expires_at 계산 (없으면 issued_at + 2시간)
-  const expiresDate = expires_at 
-    ? new Date(expires_at * 1000)
-    : issued_at 
-    ? new Date((issued_at + 7200) * 1000)
-    : null;
+  const { access_token, refresh_token } = tokenData;
 
   await prisma.mallSettings.upsert({
     where: { mallId },
     update: {
       accessToken: access_token,
       refreshToken: refresh_token,
-      tokenExpiresAt: expiresDate,
+      // tokenExpiresAt 제거!
       isActive: true,
     },
     create: {
       mallId,
       accessToken: access_token,
       refreshToken: refresh_token,
-      tokenExpiresAt: expiresDate,
+      // tokenExpiresAt 제거!
       isActive: true,
     },
   });
 }
 
-// 프론트엔드로 리다이렉트
 function redirectToFrontend(
   request: NextRequest,
   mallId: string,
@@ -124,7 +113,6 @@ function redirectToFrontend(
   return NextResponse.redirect(redirectUrl);
 }
 
-// 에러 처리
 function redirectWithError(request: NextRequest, error: any) {
   const redirectUrl = new URL('/', request.url);
   redirectUrl.searchParams.set('error', 'oauth_failed');
