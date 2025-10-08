@@ -1,4 +1,4 @@
-// src/app/components/ScriptManager.tsx (신규 생성)
+// src/app/components/ScriptManager.tsx (완전 수정)
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,7 +20,7 @@ interface ScriptStatus {
 
 interface ScriptManagerProps {
   mallId: string;
-  autoCheck?: boolean;  // 자동 상태 확인 여부
+  autoCheck?: boolean;
 }
 
 export default function ScriptManager({ 
@@ -31,14 +31,13 @@ export default function ScriptManager({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 컴포넌트 마운트 시 자동 상태 확인
   useEffect(() => {
     if (autoCheck && mallId) {
       checkStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mallId, autoCheck]);
 
-  // 상태 확인
   const checkStatus = async () => {
     setLoading(true);
     setError(null);
@@ -61,7 +60,6 @@ export default function ScriptManager({
     }
   };
 
-  // 스크립트 설치
   const install = async () => {
     setLoading(true);
     setError(null);
@@ -77,7 +75,7 @@ export default function ScriptManager({
       
       if (data.success) {
         alert(data.message || '✅ 설치 완료!');
-        await checkStatus(); // 상태 새로고침
+        await checkStatus();
       } else {
         const errorMsg = data.error || '설치 실패';
         setError(errorMsg);
@@ -93,9 +91,12 @@ export default function ScriptManager({
     }
   };
 
-  // 스크립트 삭제
   const uninstall = async () => {
-    if (!confirm('정말 삭제하시겠습니까?\n\nReview2Earn 스크립트가 제거되며, 리뷰 작성 페이지에서 체크박스가 사라집니다.')) {
+    const confirmMessage = `정말 삭제하시겠습니까?
+
+Review2Earn 스크립트가 제거되며, 리뷰 작성 페이지에서 체크박스가 사라집니다.`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
     
@@ -113,7 +114,7 @@ export default function ScriptManager({
       
       if (data.success) {
         alert(data.message || '✅ 삭제 완료!');
-        await checkStatus(); // 상태 새로고침
+        await checkStatus();
       } else {
         const errorMsg = data.error || '삭제 실패';
         setError(errorMsg);
@@ -131,7 +132,6 @@ export default function ScriptManager({
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-200">
-      {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">🔧 스크립트 관리</h2>
@@ -145,7 +145,6 @@ export default function ScriptManager({
       </div>
       
       <div className="space-y-4">
-        {/* 로딩 표시 */}
         {loading && (
           <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="relative w-5 h-5">
@@ -156,7 +155,6 @@ export default function ScriptManager({
           </div>
         )}
 
-        {/* 에러 표시 */}
         {error && !loading && (
           <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
             <div className="flex items-start gap-2">
@@ -169,7 +167,6 @@ export default function ScriptManager({
           </div>
         )}
 
-        {/* 상태 표시 */}
         {status && !loading && (
           <div className={`p-5 rounded-lg border-l-4 ${
             status.installed 
@@ -213,14 +210,6 @@ export default function ScriptManager({
                         {status.script.src}
                       </span>
                     </div>
-                    {status.script.display_location && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500">위치:</span>
-                        <span className="text-gray-800">
-                          {status.script.display_location.join(', ')}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )}
                 
@@ -232,7 +221,7 @@ export default function ScriptManager({
                 
                 {!status.installed && !status.needsAuth && (
                   <p className="mt-2 text-sm text-yellow-700">
-                    💡 아래 "설치" 버튼을 클릭하여 스크립트를 자동으로 설치하세요.
+                    💡 아래 &quot;설치&quot; 버튼을 클릭하여 스크립트를 자동으로 설치하세요.
                   </p>
                 )}
               </div>
@@ -240,7 +229,6 @@ export default function ScriptManager({
           </div>
         )}
 
-        {/* 버튼 그룹 */}
         <div className="grid grid-cols-3 gap-3 pt-2">
           <button
             onClick={checkStatus}
@@ -270,7 +258,6 @@ export default function ScriptManager({
           </button>
         </div>
 
-        {/* 도움말 */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-sm text-gray-600 font-medium mb-2">📚 사용 방법</p>
           <ul className="text-xs text-gray-600 space-y-1 ml-4">

@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
 }
 
 // ⭐ OPTIONS 핸들러 추가 (CORS Preflight)
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
+  // request 파라미터 제거
   return new NextResponse(null, {
     status: 200,
     headers: {

@@ -181,9 +181,14 @@ export async function POST(request: NextRequest) {
 }
 
 // ⭐ 개선 4: OPTIONS 핸들러 추가
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
+  // request 파라미터 제거
   return new NextResponse(null, {
     status: 200,
-    headers: CORS_HEADERS,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
   });
 }
