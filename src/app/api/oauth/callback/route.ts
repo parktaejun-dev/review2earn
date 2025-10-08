@@ -82,10 +82,9 @@ export async function GET(request: NextRequest) {
       access_token,
       refresh_token,
       expires_at,
-      scopes,
     } = tokenData;
 
-    // DB에 저장 (upsert)
+    // ✅ DB에 저장 (tokenExpiresAt 사용)
     console.log('💾 DB에 토큰 저장 중...');
     
     await prisma.mallSettings.upsert({
@@ -93,8 +92,7 @@ export async function GET(request: NextRequest) {
       update: {
         accessToken: access_token,
         refreshToken: refresh_token,
-        expiresAt: new Date(expires_at * 1000),
-        scopes: scopes || [],
+        tokenExpiresAt: new Date(expires_at * 1000), // ✅ 수정됨!
         isActive: true,
         updatedAt: new Date(),
       },
@@ -102,8 +100,7 @@ export async function GET(request: NextRequest) {
         mallId: mallId,
         accessToken: access_token,
         refreshToken: refresh_token,
-        expiresAt: new Date(expires_at * 1000),
-        scopes: scopes || [],
+        tokenExpiresAt: new Date(expires_at * 1000), // ✅ 수정됨!
         isActive: true,
       },
     });
