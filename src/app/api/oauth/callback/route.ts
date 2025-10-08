@@ -6,6 +6,13 @@ const CAFE24_CLIENT_ID = process.env.CAFE24_CLIENT_ID!;
 const CAFE24_CLIENT_SECRET = process.env.CAFE24_CLIENT_SECRET!;
 const CAFE24_REDIRECT_URI = process.env.CAFE24_REDIRECT_URI!;
 
+interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_at?: number;
+  issued_at?: number;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { code, state } = extractCallbackParams(request);
@@ -14,10 +21,10 @@ export async function GET(request: NextRequest) {
     
     await saveMallSettings(mallId, tokenData);
     
-    return redirectToFrontend(request, mallId, tokenData);
-  } catch (error) {
-    console.error('❌ OAuth Callback Error:', error);
-    return redirectWithError(request, error);
+    return redirectToFrontend(request, mallId);
+  } catch (err) {
+    console.error('❌ OAuth Callback Error:', err);
+    return redirectWithError(request, err as Error);
   }
 }
 
@@ -44,12 +51,12 @@ function decodeMallId(state: string): string {
     }
     
     return stateData.mallId;
-  } catch (error) {
+  } catch {
     throw new Error('Invalid state parameter');
   }
 }
 
-async function exchangeCodeForToken(mallId: string, code: string) {
+async function exchangeCodeForToken(mallId: string, code: string): Promise<TokenResponse> {
   const authHeader = Buffer.from(
     `${CAFE24_CLIENT_ID}:${CAFE24_CLIENT_SECRET}`
   ).toString('base64');
@@ -76,11 +83,10 @@ async function exchangeCodeForToken(mallId: string, code: string) {
     throw new Error(`Token exchange failed: ${JSON.stringify(data)}`);
   }
 
-  return data;
+  return data as TokenResponse;
 }
 
-// ✅ tokenExpiresAt 제거!
-async function saveMallSettings(mallId: string, tokenData: any) {
+async function saveMallSettings(mallId: string, tokenData: TokenResponse) {
   const { access_token, refresh_token } = tokenData;
 
   await prisma.mallSettings.upsert({
@@ -88,24 +94,18 @@ async function saveMallSettings(mallId: string, tokenData: any) {
     update: {
       accessToken: access_token,
       refreshToken: refresh_token,
-      // tokenExpiresAt 제거!
       isActive: true,
     },
     create: {
       mallId,
       accessToken: access_token,
       refreshToken: refresh_token,
-      // tokenExpiresAt 제거!
       isActive: true,
     },
   });
 }
 
-function redirectToFrontend(
-  request: NextRequest,
-  mallId: string,
-  tokenData: any
-) {
+function redirectToFrontend(request: NextRequest, mallId: string) {
   const redirectUrl = new URL('/', request.url);
   redirectUrl.searchParams.set('oauth_success', 'true');
   redirectUrl.searchParams.set('mall_id', mallId);
@@ -113,7 +113,7 @@ function redirectToFrontend(
   return NextResponse.redirect(redirectUrl);
 }
 
-function redirectWithError(request: NextRequest, error: any) {
+function redirectWithError(request: NextRequest, error: Error) {
   const redirectUrl = new URL('/', request.url);
   redirectUrl.searchParams.set('error', 'oauth_failed');
   redirectUrl.searchParams.set('message', error.message || 'Unknown error');
