@@ -5,80 +5,124 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { mall_id } = body;
+    const { mallId } = body;
 
-    console.log('📥 ScriptTag 설치 요청:', { mall_id });
-
-    if (!mall_id) {
+    if (!mallId) {
       return NextResponse.json(
-        { success: false, message: 'mall_id가 필요합니다' },
+        {
+          success: false,
+          error: 'Mall ID가 필요합니다.'
+        },
         { status: 400 }
       );
     }
 
-    // ✅ DB에서 토큰 가져오기
+    // DB에서 토큰 조회
     const mallSettings = await prisma.mallSettings.findUnique({
-      where: { mallId: mall_id },
+      where: { mallId },
     });
 
     if (!mallSettings || !mallSettings.accessToken) {
-      console.error('❌ DB에 토큰 없음:', mall_id);
       return NextResponse.json(
-        { success: false, message: '카페24 OAuth 인증을 먼저 완료해주세요' },
+        {
+          success: false,
+          error: 'OAuth 인증이 필요합니다. 먼저 카페24 연결을 완료하세요.'
+        },
         { status: 401 }
       );
     }
 
     const accessToken = mallSettings.accessToken;
 
-    console.log('✅ DB에서 토큰 가져옴:', { mall_id, token: accessToken.slice(0, 10) + '...' });
+    // 1. 기존 ScriptTag 확인
+    const checkResponse = await fetch(
+      `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
-    // ScriptTag 생성
-    const scriptTag = {
-      src: `${process.env.NEXTAUTH_URL}/review2earn-script.js`,
-      display_location: ['ORDER_BASKET', 'PRODUCT_DETAIL'],
-      exclude_path: [],
-      skin_no: [1],
-    };
+    if (!checkResponse.ok) {
+      const errorData = await checkResponse.json();
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'ScriptTags 조회 실패',
+          details: errorData
+        },
+        { status: checkResponse.status }
+      );
+    }
 
-    const response = await fetch(
-      `https://${mall_id}.cafe24api.com/api/v2/admin/scripttags`,
+    const existingTags = await checkResponse.json();
+    const scriptUrl = 'https://review2earn.vercel.app/scripts/review-consent.js';
+
+    // 이미 설치된 스크립트 확인
+    const alreadyInstalled = existingTags.scripttags?.some(
+      (tag: { src: string }) => tag.src === scriptUrl
+    );
+
+    if (alreadyInstalled) {
+      return NextResponse.json({
+        success: true,
+        message: '✅ 이미 설치되어 있습니다!',
+        scriptLocation: scriptUrl,
+      });
+    }
+
+    // 2. ScriptTag 설치
+    const installResponse = await fetch(
+      `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-          'X-Cafe24-Api-Version': '2024-03-01',
         },
-        body: JSON.stringify({ request: scriptTag }),
+        body: JSON.stringify({
+          request: {
+            src: scriptUrl,
+            display_location: ['PRODUCT_DETAIL', 'BOARD_WRITE'],
+            exclude_path: [],
+            integrity: null,
+            skin_no: [1],
+          },
+        }),
       }
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('❌ ScriptTag 생성 실패:', data);
+    if (!installResponse.ok) {
+      const errorData = await installResponse.json();
       return NextResponse.json(
-        { success: false, message: 'ScriptTag 생성 실패', details: data },
-        { status: response.status }
+        {
+          success: false,
+          error: 'ScriptTag 설치 실패',
+          details: errorData
+        },
+        { status: installResponse.status }
       );
     }
 
-    console.log('✅ ScriptTag 생성 성공:', data);
+    const result = await installResponse.json();
 
     return NextResponse.json({
       success: true,
-      message: 'ScriptTag 설치 완료!',
-      data: data.scripttag,
+      message: '✅ ScriptTag 설치 성공!',
+      data: result,
+      scriptLocation: scriptUrl,
+      nextStep: '쇼핑몰의 리뷰 작성 페이지에서 "Review2Earn 참여 동의" 옵션을 확인하세요.',
     });
 
   } catch (error) {
-    console.error('❌ ScriptTag 설치 에러:', error);
+    console.error('❌ ScriptTag Install Error:', error);
     return NextResponse.json(
       {
         success: false,
-        message: 'ScriptTag 설치 중 에러 발생',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        error: '서버 오류가 발생했습니다.',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
