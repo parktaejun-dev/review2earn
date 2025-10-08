@@ -55,8 +55,22 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json();
     console.log('✅ Token obtained:', tokenData);
 
-    // ✅ expires_in 처리 수정
-    const expiresInSeconds = tokenData.expires_in || tokenData.expires_at || 7200; // 기본 2시간
+    // ✅ expires_in을 숫자로 변환!
+    const expiresInSeconds = parseInt(String(tokenData.expires_in || tokenData.expires_at || '7200'), 10);
+    
+    // ✅ 유효성 검증
+    if (isNaN(expiresInSeconds) || expiresInSeconds <= 0) {
+      console.error('❌ Invalid expires_in:', tokenData.expires_in);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid token expiry',
+          details: `expires_in: ${tokenData.expires_in}`
+        },
+        { status: 500 }
+      );
+    }
+
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
     console.log('📅 Token expiry:', {
@@ -65,31 +79,18 @@ export async function GET(request: NextRequest) {
       isValid: !isNaN(expiresAt.getTime())
     });
 
-    // ✅ 유효성 검증 추가
-    if (isNaN(expiresAt.getTime())) {
-      console.error('❌ Invalid expiry date');
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid token expiry date',
-          details: `expires_in: ${expiresInSeconds}`
-        },
-        { status: 500 }
-      );
-    }
-
     // MallSettings에 저장
     await prisma.mallSettings.upsert({
       where: { mallId },
       update: {
         accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
+        refreshToken: tokenData.refresh_token || null,
         tokenExpiresAt: expiresAt,
       },
       create: {
         mallId,
         accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
+        refreshToken: tokenData.refresh_token || null,
         tokenExpiresAt: expiresAt,
       },
     });
@@ -99,7 +100,9 @@ export async function GET(request: NextRequest) {
     // 프론트엔드로 리다이렉트
     const redirectUrl = new URL('/', request.url);
     redirectUrl.searchParams.set('access_token', tokenData.access_token);
-    redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token || '');
+    if (tokenData.refresh_token) {
+      redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
+    }
     redirectUrl.searchParams.set('mall_id', mallId);
     redirectUrl.searchParams.set('expires_in', expiresInSeconds.toString());
 
