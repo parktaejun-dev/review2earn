@@ -7,13 +7,13 @@ import { saveMallSettings } from '@/lib/db';
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
-  const state = url.searchParams.get('state');
+  const stateParam = url.searchParams.get('state');
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
   
   console.log('🎯 OAuth Callback - Parameters:', {
     code: code ? '[RECEIVED]' : 'MISSING',
-    state: state || 'MISSING',
+    state: stateParam ? stateParam.substring(0, 20) + '...' : 'MISSING',
     error: error || 'NONE',
     error_description: errorDescription || 'NONE'
   });
@@ -41,9 +41,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // mall_id 추출 (state 파라미터에서 가져오거나 하드코딩)
-    // 실제 프로덕션에서는 state에서 mall_id를 추출해야 합니다
-    const mallId = state || 'dhdshop';
+    // state에서 mall_id 추출
+    let mallId = 'dhdshop'; // 기본값
+    
+    if (stateParam) {
+      try {
+        const decodedState = Buffer.from(stateParam, 'base64').toString('utf-8');
+        const stateObj = JSON.parse(decodedState);
+        mallId = stateObj.mallId || 'dhdshop';
+        
+        console.log('✅ Decoded state:', {
+          mallId: stateObj.mallId,
+          random: stateObj.random?.substring(0, 10) + '...',
+          timestamp: stateObj.timestamp
+        });
+      } catch (e) {
+        console.warn('⚠️ Failed to parse state, using default mall_id:', e);
+      }
+    }
+    
+    console.log('🎯 Using mall_id:', mallId);
     
     // 환경변수 존재 확인
     if (!serverConfig.cafe24.clientId || !serverConfig.cafe24.clientSecret) {
