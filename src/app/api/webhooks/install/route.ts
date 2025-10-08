@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     
     console.log('📥 App Install Webhook 수신:', body);
 
-    const { mall_id, code, timestamp, hmac } = body;
+    const { mall_id, code } = body;
 
     if (!mall_id || !code) {
       console.error('❌ mall_id 또는 code 없음');
@@ -20,9 +20,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // HMAC 검증 (보안)
-    // TODO: hmac 검증 추가
 
     console.log('🔄 Access Token 교환 시작...');
 
@@ -63,10 +60,9 @@ export async function POST(request: NextRequest) {
       access_token,
       refresh_token,
       expires_at,
-      scopes,
     } = tokenData;
 
-    // DB에 저장 (upsert)
+    // ✅ DB에 저장 (tokenExpiresAt 사용)
     console.log('💾 DB에 Mall 정보 저장 중...');
     
     await prisma.mallSettings.upsert({
@@ -74,8 +70,7 @@ export async function POST(request: NextRequest) {
       update: {
         accessToken: access_token,
         refreshToken: refresh_token,
-        expiresAt: new Date(expires_at * 1000),
-        scopes: scopes || [],
+        tokenExpiresAt: new Date(expires_at * 1000), // ✅ 수정!
         isActive: true,
         updatedAt: new Date(),
       },
@@ -83,8 +78,7 @@ export async function POST(request: NextRequest) {
         mallId: mall_id,
         accessToken: access_token,
         refreshToken: refresh_token,
-        expiresAt: new Date(expires_at * 1000),
-        scopes: scopes || [],
+        tokenExpiresAt: new Date(expires_at * 1000), // ✅ 수정!
         isActive: true,
       },
     });
