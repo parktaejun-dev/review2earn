@@ -207,43 +207,41 @@ export default function Home() {
   };
 
   const installScriptTag = async () => {
-    if (!connectionResult?.success) {
-      alert('먼저 카페24 연결 테스트를 완료해주세요.');
-      return;
-    }
+  if (!connectionResult?.success) {
+    alert('먼저 카페24 연결 테스트를 완료해주세요.');
+    return;
+  }
 
-    setIsInstallingScript(true);
-    setScriptTagResult(null);
+  setIsInstallingScript(true);
+  setScriptTagResult(null);
 
-    try {
-      const accessToken = localStorage.getItem('cafe24_access_token');
-      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+  try {
+    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
-      const response = await fetch('/api/scripttags', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken || ''}`,
-          'X-Mall-Id': mallId || ''
-        },
-        body: JSON.stringify({
-          mallId: mallId,
-          accessToken: accessToken
-        })
-      });
+    // ✅ 수정: /api/scripttags/install 로 변경
+    const response = await fetch('/api/scripttags/install', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mallId: mallId,
+      })
+    });
 
-      const data = await response.json();
-      setScriptTagResult(data);
-    } catch (error) {
-      console.error('ScriptTag install error:', error);
-      setScriptTagResult({
-        success: false,
-        error: 'ScriptTag 설치 중 오류가 발생했습니다.'
-      });
-    } finally {
-      setIsInstallingScript(false);
-    }
-  };
+    const data = await response.json();
+    setScriptTagResult(data);
+  } catch (error) {
+    console.error('ScriptTag install error:', error);
+    setScriptTagResult({
+      success: false,
+      error: 'ScriptTag 설치 중 오류가 발생했습니다.'
+    });
+  } finally {
+    setIsInstallingScript(false);
+  }
+};
+
 
   const uninstallScriptTag = async () => {
     if (!connectionResult?.success) {
