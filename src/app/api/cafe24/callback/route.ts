@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error(`❌ [OAuth Callback] Error from Cafe24: ${error}`);
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/dashboard?error=oauth_denied`
+      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/?error=oauth_denied` // 수정
     );
   }
 
@@ -85,18 +85,18 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ [OAuth Callback] Tokens saved to DB for ${state}`);
 
-    // 3. 대시보드로 리다이렉트 (성공)
-    const dashboardUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/dashboard?success=true&mall_id=${state}`;
+    // 3. 홈페이지로 리다이렉트 (성공)
+    const successUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/?success=true&mall_id=${state}`; // 수정
     
-    console.log(`🎉 [OAuth Callback] Success! Redirecting to: ${dashboardUrl}`);
+    console.log(`🎉 [OAuth Callback] Success! Redirecting to: ${successUrl}`);
 
-    return NextResponse.redirect(dashboardUrl);
+    return NextResponse.redirect(successUrl);
   } catch (error) {
     console.error('❌ [OAuth Callback] Error:', error);
     
-    // 대시보드로 리다이렉트 (에러)
+    // 홈페이지로 리다이렉트 (에러)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/dashboard?error=oauth_failed`
+      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/?error=oauth_failed` // 수정
     );
   }
 }
