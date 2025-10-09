@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['BOARD'], // ✅ 'BOARD'
+          display_location: ['ALL'], // ✅ 'ALL'
           exclude_path: [],
           integrity: '',
           skin_no: [1],
