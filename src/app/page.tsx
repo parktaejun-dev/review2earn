@@ -60,7 +60,7 @@ export default function Home() {
   const [mallIdInput, setMallIdInput] = useState('');
 
   useEffect(() => {
-    // 1. OAuth callback 처리 (새로 추가)
+    // 1. OAuth callback 처리
     const urlParams = new URLSearchParams(window.location.search);
     const oauthSuccess = urlParams.get('oauth_success');
     const mallIdParam = urlParams.get('mall_id');
@@ -73,15 +73,12 @@ export default function Home() {
     }
     
     if (oauthSuccess === 'true' && mallIdParam) {
-      // OAuth 성공 시 자동으로 mallId 설정
       setMallIdInput(mallIdParam);
       localStorage.setItem('user_mall_id', mallIdParam);
       localStorage.setItem('cafe24_mall_id', mallIdParam);
       
-      // URL 정리
       window.history.replaceState({}, '', '/');
       
-      // 연결 테스트 자동 실행
       setTimeout(() => {
         testConnection();
       }, 500);
@@ -89,7 +86,7 @@ export default function Home() {
       return;
     }
 
-    // 2. 기존 OAuth 토큰 처리 (기존 코드 유지)
+    // 2. 기존 OAuth 토큰 처리
     const accessToken = urlParams.get('access_token');
     const refreshToken = urlParams.get('refresh_token');
     const mallId = urlParams.get('mall_id');
@@ -109,7 +106,7 @@ export default function Home() {
       window.location.reload();
     }
 
-    // 3. 저장된 mallId 불러오기 (기존 코드 유지)
+    // 3. 저장된 mallId 불러오기
     const savedMallId = localStorage.getItem('user_mall_id');
     if (savedMallId) {
       setMallIdInput(savedMallId);
@@ -172,77 +169,73 @@ export default function Home() {
   }
 
   const verifyToken = async () => {
-  setIsVerifying(true);
-  setVerifyResult(null);
+    setIsVerifying(true);
+    setVerifyResult(null);
 
-  try {
-    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+    try {
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
-    if (!mallId) {
-      alert('Mall ID를 입력하세요.');
+      if (!mallId) {
+        alert('Mall ID를 입력하세요.');
+        setIsVerifying(false);
+        return;
+      }
+
+      const response = await fetch('/api/oauth/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mallId })
+      });
+
+      const data = await response.json();
+      setVerifyResult(data);
+    } catch (error) {
+      console.error('Token verification error:', error);
+      setVerifyResult({
+        success: false,
+        error: '토큰 검증 중 오류가 발생했습니다.'
+      });
+    } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const installScriptTag = async () => {
+    if (!connectionResult?.success) {
+      alert('먼저 카페24 연결 테스트를 완료해주세요.');
       return;
     }
 
-    // ✅ 수정: /api/oauth/verify 호출
-    const response = await fetch('/api/oauth/verify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ mallId })
-    });
+    setIsInstallingScript(true);
+    setScriptTagResult(null);
 
-    const data = await response.json();
-    setVerifyResult(data);
-  } catch (error) {
-    console.error('Token verification error:', error);
-    setVerifyResult({
-      success: false,
-      error: '토큰 검증 중 오류가 발생했습니다.'
-    });
-  } finally {
-    setIsVerifying(false);
-  }
-};
+    try {
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
 
+      const response = await fetch('/api/scripttags/install', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mallId: mallId,
+        })
+      });
 
-  const installScriptTag = async () => {
-  if (!connectionResult?.success) {
-    alert('먼저 카페24 연결 테스트를 완료해주세요.');
-    return;
-  }
-
-  setIsInstallingScript(true);
-  setScriptTagResult(null);
-
-  try {
-    const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
-
-    // ✅ 수정: /api/scripttags/install 로 변경
-    const response = await fetch('/api/scripttags/install', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        mallId: mallId,
-      })
-    });
-
-    const data = await response.json();
-    setScriptTagResult(data);
-  } catch (error) {
-    console.error('ScriptTag install error:', error);
-    setScriptTagResult({
-      success: false,
-      error: 'ScriptTag 설치 중 오류가 발생했습니다.'
-    });
-  } finally {
-    setIsInstallingScript(false);
-  }
-};
-
+      const data = await response.json();
+      setScriptTagResult(data);
+    } catch (error) {
+      console.error('ScriptTag install error:', error);
+      setScriptTagResult({
+        success: false,
+        error: 'ScriptTag 설치 중 오류가 발생했습니다.'
+      });
+    } finally {
+      setIsInstallingScript(false);
+    }
+  };
 
   const uninstallScriptTag = async () => {
     if (!connectionResult?.success) {
@@ -280,6 +273,26 @@ export default function Home() {
       });
     } finally {
       setIsUninstalling(false);
+    }
+  };
+
+  // ✅ 새로 추가: ScriptTag 목록 확인 함수
+  const listScriptTags = async () => {
+    try {
+      const mallId = mallIdInput || localStorage.getItem('cafe24_mall_id');
+      
+      if (!mallId) {
+        alert('Mall ID를 입력하세요.');
+        return;
+      }
+
+      const res = await fetch(`/api/scripttags/list?mallId=${mallId}`);
+      const data = await res.json();
+      console.log('📋 현재 ScriptTags:', data);
+      alert(JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('ScriptTag list error:', error);
+      alert('ScriptTag 목록 조회 중 오류가 발생했습니다.');
     }
   };
 
@@ -487,7 +500,8 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex gap-4">
+          {/* ✅ 버튼 3개 */}
+          <div className="flex gap-4 flex-wrap">
             <button
               onClick={installScriptTag}
               disabled={isInstallingScript || !connectionResult?.success}
@@ -495,8 +509,7 @@ export default function Home() {
                 isInstallingScript || !connectionResult?.success
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-green-500 hover:bg-green-600 transform hover:scale-105'
-              }`}
-            >
+              }`}>
               {isInstallingScript ? '🔄 설치 중...' : '📦 ScriptTag 설치'}
             </button>
 
@@ -510,6 +523,19 @@ export default function Home() {
               }`}
             >
               {isUninstalling ? '🔄 제거 중...' : '🗑️ ScriptTag 제거'}
+            </button>
+
+            {/* ✅ 새로 추가된 버튼 */}
+            <button
+              onClick={listScriptTags}
+              disabled={!connectionResult?.success}
+              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all duration-300 ${
+                !connectionResult?.success
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 transform hover:scale-105'
+              }`}
+            >
+              📋 ScriptTag 목록 확인
             </button>
           </div>
 
