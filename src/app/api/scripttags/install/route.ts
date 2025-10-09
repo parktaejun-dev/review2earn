@@ -54,9 +54,14 @@ export async function POST(request: NextRequest) {
     const existingTags = await checkResponse.json();
 
     // 이미 설치 확인
-    const alreadyInstalled = existingTags.scripttags?.some(
-      (tag: any) => tag.src === scriptUrl
-    );
+    interface ScriptTag {
+  src?: string;
+  script_no?: number;
+}
+
+const alreadyInstalled = existingTags.scripttags?.some(
+  (tag: ScriptTag) => tag.src === scriptUrl
+);
 
     if (alreadyInstalled) {
       console.log(`ℹ️ [ScriptTag Install] Already installed for ${mallId}`);

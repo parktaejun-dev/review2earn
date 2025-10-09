@@ -54,10 +54,16 @@ export async function GET(request: NextRequest) {
     const scripttags = data.scripttags || [];
 
     // Review2Earn 스크립트 찾기
-    const r2eScript = scripttags.find((tag: any) =>
-      tag.src?.includes('review2earn.vercel.app') ||
-      tag.src?.includes('review-consent.js')
-    );
+    interface ScriptTag {
+  script_no: number;
+  src?: string;
+  display_location?: string[];
+}
+
+const r2eScript = scripttags.find((tag: ScriptTag) =>
+  tag.src?.includes('review2earn.vercel.app') ||
+  tag.src?.includes('review-consent.js')
+);
 
     if (r2eScript) {
       console.log(`✅ [ScriptTag Status] Found R2E script for ${mallId}`);
