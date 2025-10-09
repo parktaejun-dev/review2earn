@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const state = searchParams.get('state');
+  let state = searchParams.get('state');
   const error = searchParams.get('error');
 
   if (error) {
@@ -24,10 +24,23 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log(`🔐 [OAuth Callback] Processing for ${state} with code: ${code.substring(0, 10)}...`);
+    // ✅ state 디코딩: Base64 JSON 또는 단순 mallId
+    let mallId: string;
+    try {
+      const decoded = Buffer.from(state, 'base64').toString('utf-8');
+      const parsedState = JSON.parse(decoded);
+      mallId = parsedState.mallId;
+      console.log(`🔍 [OAuth Callback] Decoded state from JSON:`, parsedState);
+    } catch {
+      // state가 단순 mallId인 경우
+      mallId = state;
+      console.log(`🔍 [OAuth Callback] Using state as mallId:`, mallId);
+    }
+
+    console.log(`🔐 [OAuth Callback] Processing for ${mallId} with code: ${code.substring(0, 10)}...`);
 
     // 1. Authorization Code를 Access Token으로 교환
-    const tokenUrl = `https://${state}.cafe24api.com/api/v2/oauth/token`;
+    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
     
     // ✅ Basic Auth 인코딩
     const credentials = Buffer.from(
@@ -38,7 +51,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${credentials}`, // ✅ Authorization 헤더 추가!
+        'Authorization': `Basic ${credentials}`,
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
@@ -54,13 +67,13 @@ export async function GET(request: NextRequest) {
     }
 
     const tokens = await tokenResponse.json();
-    console.log(`✅ [OAuth Callback] Token received for ${state}`);
+    console.log(`✅ [OAuth Callback] Token received for ${mallId}`);
 
     // 2. DB에 토큰 저장
     await prisma.mallSettings.upsert({
-      where: { mallId: state },
+      where: { mallId },
       create: {
-        mallId: state,
+        mallId,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: tokens.expires_at
@@ -83,11 +96,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log(`✅ [OAuth Callback] Tokens saved to DB for ${state}`);
+    console.log(`✅ [OAuth Callback] Tokens saved to DB for ${mallId}`);
 
     // 3. 성공 리다이렉트
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/?success=true&mall_id=${state}`
+      `${process.env.NEXT_PUBLIC_BASE_URL || 'https://review2earn.vercel.app'}/?success=true&mall_id=${mallId}`
     );
   } catch (error) {
     console.error('❌ [OAuth Callback] Error:', error);
