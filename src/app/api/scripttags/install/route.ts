@@ -95,7 +95,12 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['all'], // ✅ 소문자 배열!
+              display_location: [
+      'PRODUCT_LIST',   // 상품 목록
+      'PRODUCT_DETAIL', // 상품 상세
+      'BOARD_LIST',     // 게시판 목록 ← 리뷰 목록!
+      'BOARD_DETAIL',   // 게시판 상세
+    ],
           skin_no: [1],
         },
       }),
