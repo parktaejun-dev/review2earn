@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2024-03-01',
+        'X-Cafe24-Api-Version': '2025-09-01',
       },
     });
 
