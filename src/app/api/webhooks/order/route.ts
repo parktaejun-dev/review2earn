@@ -141,9 +141,23 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 🆕 4. Review 통계 업데이트
+    await prisma.review.update({
+      where: { id: review.id },
+      data: {
+        conversionCount: {
+          increment: transactions.length,
+        },
+        totalRevenue: {
+          increment: totalReward,
+        },
+      },
+    });
+
     console.log('✅ Order processed successfully:', {
       transactionCount: transactions.length,
       totalReward,
+      statsUpdated: true,
     });
 
     return NextResponse.json({

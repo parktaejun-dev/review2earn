@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "reviews" ADD COLUMN     "click_count" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "conversion_count" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "total_revenue" DOUBLE PRECISION NOT NULL DEFAULT 0;
