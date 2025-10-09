@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
         request: {
           src: scriptUrl,
           display_location: 'ALL', // ✅ 'ALL'
-          skin_no: [1],
         },
       }),
     });
