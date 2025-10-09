@@ -1,4 +1,4 @@
-// src/app/api/scripttags/install/route.ts (최종 버전)
+// src/app/api/scripttags/install/route.ts (최종 수정 버전)
 import { NextRequest, NextResponse } from 'next/server';
 import { getValidToken } from '@/lib/refreshToken';
 
@@ -7,6 +7,11 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+interface ScriptTag {
+  src?: string;
+  script_no?: number;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,14 +59,9 @@ export async function POST(request: NextRequest) {
     const existingTags = await checkResponse.json();
 
     // 이미 설치 확인
-    interface ScriptTag {
-  src?: string;
-  script_no?: number;
-}
-
-const alreadyInstalled = existingTags.scripttags?.some(
-  (tag: ScriptTag) => tag.src === scriptUrl
-);
+    const alreadyInstalled = existingTags.scripttags?.some(
+      (tag: ScriptTag) => tag.src === scriptUrl
+    );
 
     if (alreadyInstalled) {
       console.log(`ℹ️ [ScriptTag Install] Already installed for ${mallId}`);
@@ -77,7 +77,7 @@ const alreadyInstalled = existingTags.scripttags?.some(
       );
     }
 
-    // 2. ScriptTag 설치
+    // 2. ScriptTag 설치 (✅ display_location을 ALL로 변경)
     const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     const installResponse = await fetch(installUrl, {
       method: 'POST',
@@ -89,7 +89,7 @@ const alreadyInstalled = existingTags.scripttags?.some(
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['BOARD_WRITE_REVIEW'], // 리뷰 작성 페이지만
+          display_location: ['ALL'], // ✅ 모든 페이지에 로드 (리뷰 페이지에서 스크립트가 자체 필터링)
           exclude_path: [],
           integrity: '',
           skin_no: [1],
