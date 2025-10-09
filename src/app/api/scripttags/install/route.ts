@@ -79,22 +79,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. 새 ScriptTag 설치 (✅ display_location: ALL)
-    const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
-    const installResponse = await fetch(installUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2025-09-01',
-      },
-      body: JSON.stringify({
-        request: {
-          src: scriptUrl,
-          display_location: 'ALL', // ✅ 'ALL'
-        },
-      }),
-    });
+    // 2. 새 ScriptTag 설치
+const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
+const installResponse = await fetch(installUrl, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    'X-Cafe24-Api-Version': '2025-09-01',
+  },
+  body: JSON.stringify({
+    request: {
+      src: scriptUrl,
+      display_location: [
+        'MAIN',
+        'PRODUCT_LIST',
+        'PRODUCT_DETAIL',
+        'BOARD_DETAIL',
+      ],
+      skin_no: [1],
+    },
+  }),
+});
 
     if (!installResponse.ok) {
       const errorData = await installResponse.json();
