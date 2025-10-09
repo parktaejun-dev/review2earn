@@ -5,6 +5,18 @@
 
   console.log('✅ Review2Earn 스크립트 로드됨');
 
+  // ✅ 리뷰 작성 페이지인지 확인
+  const isReviewWritePage = 
+    window.location.href.includes('/board/product/write') ||
+    window.location.pathname.includes('/board/product/write');
+
+  if (!isReviewWritePage) {
+    console.log('ℹ️ Review2Earn: Not a review write page, skipping...');
+    return; // 리뷰 페이지가 아니면 종료
+  }
+
+  console.log('✅ Review2Earn: 리뷰 작성 페이지 감지됨');
+
   // 전역 설정
   const API_BASE_URL = 'https://review2earn.vercel.app';
   const DEFAULT_REVIEWER_PERCENT = 1.0;
@@ -59,83 +71,83 @@
 
   // 체크박스 HTML 생성 (개선된 디자인)
   function createCheckboxHtml(reviewerPercent, buyerPercent) {
-  return `
-    <div id="r2e-consent-wrapper" style="
-      margin: 20px 0; 
-      padding: 25px; 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 20px;
-      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
-      border: 2px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    " 
-    onmouseover="this.style.transform='translateY(-4px) scale(1.01)'; this.style.boxShadow='0 20px 60px rgba(102, 126, 234, 0.5)';" 
-    onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 40px rgba(102, 126, 234, 0.4)';">
-      
-      <label style="display: flex; align-items: flex-start; cursor: pointer;">
+    return `
+      <div id="r2e-consent-wrapper" style="
+        margin: 20px 0; 
+        padding: 25px; 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      " 
+      onmouseover="this.style.transform='translateY(-4px) scale(1.01)'; this.style.boxShadow='0 20px 60px rgba(102, 126, 234, 0.5)';" 
+      onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 40px rgba(102, 126, 234, 0.4)';">
         
-        <!-- ✨ 체크박스 (32px + drop-shadow) -->
-        <input 
-          type="checkbox" 
-          id="r2e-consent-checkbox" 
-          style="
-            width: 32px; 
-            height: 32px; 
-            margin-right: 18px; 
-            margin-top: 2px;
-            cursor: pointer; 
-            accent-color: #10b981;
-            flex-shrink: 0;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-          "
-        >
-        
-        <div style="color: white; flex: 1;">
+        <label style="display: flex; align-items: flex-start; cursor: pointer;">
           
-          <!-- 🎯 헤더 (이모지 + 제목) -->
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-            <span style="
-              font-size: 1.5em; 
-              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            ">💰</span>
-            <strong style="
-              font-size: 1.25em; 
-              text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            ">Review2Earn에 참여하기</strong>
+          <!-- ✨ 체크박스 (32px + drop-shadow) -->
+          <input 
+            type="checkbox" 
+            id="r2e-consent-checkbox" 
+            style="
+              width: 32px; 
+              height: 32px; 
+              margin-right: 18px; 
+              margin-top: 2px;
+              cursor: pointer; 
+              accent-color: #10b981;
+              flex-shrink: 0;
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            "
+          >
+          
+          <div style="color: white; flex: 1;">
+            
+            <!-- 🎯 헤더 (이모지 + 제목) -->
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+              <span style="
+                font-size: 1.5em; 
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+              ">💰</span>
+              <strong style="
+                font-size: 1.25em; 
+                text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              ">Review2Earn에 참여하기</strong>
+            </div>
+            
+            <!-- 💡 메인 메시지 -->
+            <p style="
+              margin: 0; 
+              font-size: 1.05em; 
+              line-height: 1.7; 
+              opacity: 0.95;
+            ">
+              이 리뷰를 통해 구매가 발생하면<br>
+              <strong style="
+                color: #fcd34d; 
+                font-size: 1.3em; 
+                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              ">${reviewerPercent}%</strong> 
+              <span style="font-size: 0.95em;">적립금을 받습니다!</span>
+            </p>
+            
+            <!-- 💸 보조 메시지 -->
+            <p style="
+              margin: 12px 0 0 0; 
+              padding-top: 12px; 
+              border-top: 1px solid rgba(255,255,255,0.3); 
+              font-size: 0.9em; 
+              opacity: 0.85;
+            ">
+              💸 구매자는 <strong style="color: #fcd34d;">${buyerPercent}%</strong> 할인 혜택을 받습니다.
+            </p>
+            
           </div>
-          
-          <!-- 💡 메인 메시지 -->
-          <p style="
-            margin: 0; 
-            font-size: 1.05em; 
-            line-height: 1.7; 
-            opacity: 0.95;
-          ">
-            이 리뷰를 통해 구매가 발생하면<br>
-            <strong style="
-              color: #fcd34d; 
-              font-size: 1.3em; 
-              text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            ">${reviewerPercent}%</strong> 
-            <span style="font-size: 0.95em;">적립금을 받습니다!</span>
-          </p>
-          
-          <!-- 💸 보조 메시지 -->
-          <p style="
-            margin: 12px 0 0 0; 
-            padding-top: 12px; 
-            border-top: 1px solid rgba(255,255,255,0.3); 
-            font-size: 0.9em; 
-            opacity: 0.85;
-          ">
-            💸 구매자는 <strong style="color: #fcd34d;">${buyerPercent}%</strong> 할인 혜택을 받습니다.
-          </p>
-          
-        </div>
-      </label>
-    </div>
-  `;
-}
+        </label>
+      </div>
+    `;
+  }
 
   // 체크박스 삽입 (개선된 버튼 찾기)
   function insertConsentCheckbox(reviewerPercent, buyerPercent) {
