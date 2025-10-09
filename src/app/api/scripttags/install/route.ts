@@ -1,4 +1,4 @@
-// src/app/api/scripttags/install/route.ts (수정 버전 2)
+// src/app/api/scripttags/install/route.ts (완전 수정 버전)
 import { NextRequest, NextResponse } from 'next/server';
 import { getValidToken } from '@/lib/refreshToken';
 
@@ -56,25 +56,30 @@ export async function POST(request: NextRequest) {
 
     const existingTags = await checkResponse.json();
 
-    const alreadyInstalled = existingTags.scripttags?.some(
+    // ✅ 기존 ScriptTag 찾기 및 삭제
+    const existingTag = existingTags.scripttags?.find(
       (tag: ScriptTag) => tag.src === scriptUrl
     );
 
-    if (alreadyInstalled) {
-      console.log(`ℹ️ [ScriptTag Install] Already installed for ${mallId}`);
+    if (existingTag && existingTag.script_no) {
+      console.log(`🔄 [ScriptTag Install] Removing existing: ${existingTag.script_no}`);
       
-      return NextResponse.json(
-        {
-          success: true,
-          message: 'ScriptTag already installed',
-          alreadyInstalled: true,
-          scriptUrl,
+      const deleteUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags/${existingTag.script_no}`;
+      const deleteResponse = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Cafe24-Api-Version': '2025-09-01',
         },
-        { headers: CORS_HEADERS }
-      );
+      });
+      
+      if (deleteResponse.ok) {
+        console.log(`✅ [ScriptTag Install] Existing tag removed`);
+      }
     }
 
-    // 2. ScriptTag 설치 (display_location 제거)
+    // 2. 새 ScriptTag 설치
     const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     const installResponse = await fetch(installUrl, {
       method: 'POST',
@@ -86,7 +91,6 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          // display_location 제거 - 모든 페이지에 로드
           exclude_path: [],
           integrity: '',
           skin_no: [1],
@@ -122,7 +126,7 @@ export async function POST(request: NextRequest) {
         scriptNo: result.scripttag?.script_no,
       },
       { headers: CORS_HEADERS }
-      );
+    );
   } catch (error) {
     console.error('❌ [ScriptTag Install] Error:', error);
 
