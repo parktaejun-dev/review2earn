@@ -7,7 +7,16 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const mallId = searchParams.get('mall_id') || 'dhdshop';
+  const mallId = searchParams.get('mall_id');
+
+  // mall_id 필수 검증
+  if (!mallId) {
+    console.error('❌ [OAuth] mall_id is required');
+    return NextResponse.json(
+      { error: 'mall_id parameter is required' },
+      { status: 400 }
+    );
+  }
 
   console.log(`🔐 [OAuth] Starting auth flow for ${mallId}`);
 
@@ -15,9 +24,9 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: process.env.CAFE24_CLIENT_ID!,
-    state: mallId, // mallId를 state로 전달
+    state: mallId,
     redirect_uri: process.env.CAFE24_REDIRECT_URI!,
-    scope: 'read_product,write_scripttags,read_store',
+    scope: 'mall.read_product,mall.write_scripttag,mall.read_store', // Scope도 수정
   });
 
   const fullAuthUrl = `${authUrl}?${params.toString()}`;
