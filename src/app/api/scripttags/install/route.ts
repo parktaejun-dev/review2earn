@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     console.log(`📦 [ScriptTag Install] Starting for ${mallId}...`);
 
     const accessToken = await getValidToken(mallId);
-    const scriptUrl = 'https://review2earn.vercel.app/scripts/review-consent.js';
+    const scriptUrl = 'https://review2earn.vercel.app/scripts/review-list-banner.js';
 
     // 1. 기존 ScriptTag 확인
     const checkUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
@@ -56,51 +56,50 @@ export async function POST(request: NextRequest) {
 
     const existingTags = await checkResponse.json();
 
-    // ✅ 기존 ScriptTag 찾기 및 삭제
-    const existingTag = existingTags.scripttags?.find(
-      (tag: ScriptTag) => tag.src === scriptUrl
+    // 기존 review2earn 스크립트 전체 삭제
+    const existingReviewTags = existingTags.scripttags?.filter(
+      (tag: ScriptTag) => tag.src?.includes('review2earn.vercel.app')
     );
 
-    if (existingTag && existingTag.script_no) {
-      console.log(`🔄 [ScriptTag Install] Removing existing: ${existingTag.script_no}`);
-      
-      const deleteUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags/${existingTag.script_no}`;
-      const deleteResponse = await fetch(deleteUrl, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'X-Cafe24-Api-Version': '2025-09-01',
-        },
-      });
-      
-      if (deleteResponse.ok) {
-        console.log(`✅ [ScriptTag Install] Existing tag removed`);
+    if (existingReviewTags && existingReviewTags.length > 0) {
+      for (const tag of existingReviewTags) {
+        if (tag.script_no) {
+          console.log(`🔄 [ScriptTag Install] Removing existing: ${tag.script_no}`);
+          
+          const deleteUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags/${tag.script_no}`;
+          const deleteResponse = await fetch(deleteUrl, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'X-Cafe24-Api-Version': '2025-09-01',
+            },
+          });
+          
+          if (deleteResponse.ok) {
+            console.log(`✅ [ScriptTag Install] Existing tag removed: ${tag.script_no}`);
+          }
+        }
       }
     }
 
     // 2. 새 ScriptTag 설치
-const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
-const installResponse = await fetch(installUrl, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-    'X-Cafe24-Api-Version': '2025-09-01',
-  },
-  body: JSON.stringify({
-    request: {
-      src: scriptUrl,
-      display_location: [
-        'MAIN',
-        'PRODUCT_LIST',
-        'PRODUCT_DETAIL',
-        'BOARD_DETAIL',
-      ],
-      skin_no: [1],
-    },
-  }),
-});
+    const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
+    const installResponse = await fetch(installUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': '2025-09-01',
+      },
+      body: JSON.stringify({
+        request: {
+          src: scriptUrl,
+          display_location: ['all'], // ✅ 소문자 배열!
+          skin_no: [1],
+        },
+      }),
+    });
 
     if (!installResponse.ok) {
       const errorData = await installResponse.json();
@@ -124,10 +123,11 @@ const installResponse = await fetch(installUrl, {
     return NextResponse.json(
       {
         success: true,
-        message: 'ScriptTag installed successfully',
+        message: 'Review List Banner installed successfully',
         data: result.scripttag,
         scriptUrl,
         scriptNo: result.scripttag?.script_no,
+        location: 'all (모든 페이지)',
       },
       { headers: CORS_HEADERS }
     );
