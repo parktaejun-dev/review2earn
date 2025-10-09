@@ -1,85 +1,120 @@
-// src/app/api/scripttags/status/route.ts (개선)
+// src/app/api/scripttags/status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { Cafe24ScriptTags } from '@/lib/cafe24-scripttags';
-import { prisma } from '@/lib/prisma';
+import { getValidToken } from '@/lib/refreshToken';
 
-interface ScriptTag {
-  src?: string;
-  script_no?: number;
-  display_location?: string[];
-}
-
-interface ScriptTagsResponse {
-  scripttags?: ScriptTag[];
-}
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const mallId = searchParams.get('mall_id');
+
+  if (!mallId) {
+    return NextResponse.json(
+      { success: false, error: 'mall_id is required' },
+      { status: 400, headers: CORS_HEADERS }
+    );
+  }
+
   try {
-    // 1. 쿠키에서 인증 정보 확인 (우선순위 1)
-    let accessToken = request.cookies.get('cafe24_access_token')?.value;
-    let mallId = request.cookies.get('cafe24_mall_id')?.value;
+    console.log(`🔍 [ScriptTag Status] Checking ${mallId}...`);
 
-    // 2. 쿼리 파라미터로도 확인 (API 호출용)
-    const { searchParams } = new URL(request.url);
-    const queryMallId = searchParams.get('mall_id');
+    // ⭐ 자동 토큰 갱신
+    const accessToken = await getValidToken(mallId);
 
-    // 3. 쿼리 파라미터가 있으면 DB에서 토큰 조회
-    if (queryMallId && !accessToken) {
-      const mallSettings = await prisma.mallSettings.findUnique({
-        where: { mallId: queryMallId },
-      });
-
-      if (mallSettings?.accessToken) {
-        accessToken = mallSettings.accessToken;
-        mallId = queryMallId;
-      }
-    }
-
-    // 4. 인증 정보 없으면 401
-    if (!accessToken || !mallId) {
-      return NextResponse.json({
-        success: false,
-        message: '카페24 인증이 필요합니다',
-        needsAuth: true,
-        installed: false,
-      }, { status: 401 });
-    }
-
-    // 5. ScriptTags 조회
-    const scriptTags = new Cafe24ScriptTags();
-    const existingScripts: ScriptTagsResponse = await scriptTags.getScriptTags(
-      mallId, 
-      accessToken
-    );
-
-    // 6. 스크립트 파일명 업데이트 (review-button.js → review-consent.js)
-    const targetScript = 'review-consent.js';
-    const reviewScript = existingScripts.scripttags?.find(
-      (script) => script.src?.includes(targetScript)
-    );
-
-    const installed = !!reviewScript;
-
-    return NextResponse.json({
-      success: true,
-      installed,
-      message: installed 
-        ? '✅ Review2Earn 스크립트가 설치되어 있습니다'
-        : '⚠️ Review2Earn 스크립트가 설치되어 있지 않습니다',
-      script: reviewScript || null,
-      totalScripts: existingScripts.scripttags?.length || 0,
-      needsInstall: !installed,
-      mallId,
+    // Cafe24 API 호출
+    const listUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
+    const response = await fetch(listUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': '2024-03-01',
+      },
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`❌ [ScriptTag Status] Cafe24 API error:`, errorData);
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to fetch ScriptTags',
+          details: errorData,
+        },
+        { status: response.status, headers: CORS_HEADERS }
+      );
+    }
+
+    const data = await response.json();
+    const scripttags = data.scripttags || [];
+
+    // Review2Earn 스크립트 찾기
+    const r2eScript = scripttags.find((tag: any) =>
+      tag.src?.includes('review2earn.vercel.app') ||
+      tag.src?.includes('review-consent.js')
+    );
+
+    if (r2eScript) {
+      console.log(`✅ [ScriptTag Status] Found R2E script for ${mallId}`);
+      
+      return NextResponse.json(
+        {
+          success: true,
+          installed: true,
+          script: {
+            script_no: r2eScript.script_no,
+            src: r2eScript.src,
+            display_location: r2eScript.display_location,
+          },
+          totalScripts: scripttags.length,
+        },
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    console.log(`ℹ️ [ScriptTag Status] R2E script not found for ${mallId}`);
+
+    return NextResponse.json(
+      {
+        success: true,
+        installed: false,
+        needsInstall: true,
+        totalScripts: scripttags.length,
+      },
+      { headers: CORS_HEADERS }
+    );
   } catch (error) {
-    console.error('❌ ScriptTags status check error:', error);
-    
-    return NextResponse.json({
-      success: false,
-      message: '스크립트 상태 확인 중 오류가 발생했습니다',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      installed: false,
-    }, { status: 500 });
+    console.error('❌ [ScriptTag Status] Error:', error);
+
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: '카페24 인증이 필요합니다',
+          needsAuth: true,
+        },
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500, headers: CORS_HEADERS }
+    );
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: CORS_HEADERS,
+  });
 }

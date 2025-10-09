@@ -1,42 +1,48 @@
-// prisma/schema.prisma
+// ============================================
+// Review2Earn (리뷰투언) v3.0
+// Prisma Schema - Production Ready
+// Last Updated: 2025-10-09
+// ============================================
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
 // 1. 쇼핑몰 설정 (OAuth + 운영 정보 통합)
 // ============================================
 model MallSettings {
-  id              Int       @id @default(autoincrement())
-  mallId          String    @unique @map("mall_id")
-  
-  // OAuth 토큰
-  accessToken     String?   @map("access_token")
-  refreshToken    String?   @map("refresh_token")
-  tokenExpiresAt  DateTime? @map("token_expires_at")
-  
+  id     Int    @id @default(autoincrement())
+  mallId String @unique @map("mall_id")
+
+  // OAuth 토큰 정보
+  accessToken    String?   @map("access_token")
+  refreshToken   String?   @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  scopes         String? // OAuth 권한 범위 (예: "read_product,write_scripttags")
+
   // v3.0 보상 요율 (기본값 설정 - NOT NULL)
-  reviewerRewardRate  Float   @default(0.01) @map("reviewer_reward_rate")  // 리뷰어 적립금 요율 (1%)
-  buyerDiscountRate   Float   @default(0.05) @map("buyer_discount_rate")   // 구매자 할인 요율 (5%)
-  platformFeeRate     Float   @default(0.005) @map("platform_fee_rate")    // 플랫폼 수수료 (0.5%)
-  
+  reviewerRewardRate Float @default(0.01) @map("reviewer_reward_rate") // 리뷰어 적립금 요율 (1%)
+  buyerDiscountRate  Float @default(0.05) @map("buyer_discount_rate") // 구매자 할인 요율 (5%)
+  platformFeeRate    Float @default(0.005) @map("platform_fee_rate") // 플랫폼 수수료 (0.5%)
+
   // 운영 정보
-  isActive        Boolean   @default(true) @map("is_active")
-  
+  isActive Boolean @default(true) @map("is_active")
+
   // 타임스탬프
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  consents        Consent[]
-  reviews         Review[]
-  transactions    Transaction[]
-  
+  consents     Consent[]
+  reviews      Review[]
+  transactions Transaction[]
+
   @@map("mall_settings")
 }
 
@@ -44,26 +50,26 @@ model MallSettings {
 // 2. 사용자 동의 정보 (추천인 참여 동의)
 // ============================================
 model Consent {
-  id          Int       @id @default(autoincrement())
-  memberId    String    @map("member_id")
-  mallId      String    @map("mall_id")
-  
+  id       Int    @id @default(autoincrement())
+  memberId String @map("member_id")
+  mallId   String @map("mall_id")
+
   // 동의 정보
   consented   Boolean   @default(false)
   consentedAt DateTime? @map("consented_at")
-  
+
   // 보안/추적
-  ipAddress   String?   @map("ip_address")
-  userAgent   String?   @map("user_agent")
-  
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+
   // 타임스탬프
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  mall        MallSettings @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
-  reviews     Review[]
-  
+  mall    MallSettings @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
+  reviews Review[]
+
   @@unique([memberId, mallId])
   @@index([memberId, mallId])
   @@map("consents")
@@ -73,33 +79,33 @@ model Consent {
 // 3. 리뷰 정보 (추천 코드 포함)
 // ============================================
 model Review {
-  id              Int      @id @default(autoincrement())
-  
-  // Cafe24 연동
-  cafe24BoardNo   Int      @map("cafe24_board_no")
-  productNo       Int      @map("product_no")
-  
+  id Int @id @default(autoincrement())
+
+  // Cafe24 연동 정보
+  cafe24BoardNo Int @map("cafe24_board_no")
+  productNo     Int @map("product_no")
+
   // 회원 정보
-  memberId        String   @map("member_id")
-  mallId          String   @map("mall_id")
-  
+  memberId String @map("member_id")
+  mallId   String @map("mall_id")
+
   // 리뷰 내용
-  content         String?  @db.Text
-  rating          Int?
-  
-  // Review2Earn 추천 코드
-  referralCode    String   @unique @map("referral_code")
-  participateR2e  Boolean  @default(true) @map("participate_r2e")
-  
+  content String? @db.Text
+  rating  Int?
+
+  // Review2Earn 추천 코드 (유니크 추천 링크 생성용)
+  referralCode   String  @unique @map("referral_code")
+  participateR2e Boolean @default(true) @map("participate_r2e")
+
   // 타임스탬프
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  mall            MallSettings  @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
-  consent         Consent       @relation(fields: [memberId, mallId], references: [memberId, mallId], onDelete: Restrict)
-  transactions    Transaction[]
-  
+  mall         MallSettings  @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
+  consent      Consent       @relation(fields: [memberId, mallId], references: [memberId, mallId], onDelete: Restrict)
+  transactions Transaction[]
+
   @@unique([cafe24BoardNo, mallId])
   @@unique([referralCode, mallId])
   @@index([productNo, mallId])
@@ -112,24 +118,51 @@ model Review {
 // 4. 거래 기록 (추천 구매 + 보상)
 // ============================================
 model Transaction {
-  id             Int      @id @default(autoincrement())
-  reviewId       Int      @map("review_id")
-  mallId         String   @map("mall_id")
-  cafe24OrderId  String   @map("cafe24_order_id")
-  productNo      Int      @map("product_no")
-  orderAmount    Float    @map("order_amount")
-  rewardAmount   Float    @map("reward_amount")
-  rewardRate     Float    @map("reward_rate")
-  status         String   @default("pending")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  
-  review         Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  mall           MallSettings @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
-  
+  id            Int      @id @default(autoincrement())
+  reviewId      Int      @map("review_id")
+  mallId        String   @map("mall_id")
+  cafe24OrderId String   @map("cafe24_order_id")
+  productNo     Int      @map("product_no")
+  orderAmount   Float    @map("order_amount")
+  rewardAmount  Float    @map("reward_amount")
+  rewardRate    Float    @map("reward_rate")
+  status        String   @default("pending")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  review Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  mall   MallSettings @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
+
   @@index([reviewId])
   @@index([mallId])
   @@index([cafe24OrderId])
   @@index([mallId, createdAt])
   @@map("transactions")
+}
+
+// ============================================
+// 5. 상품별 커스텀 보상 요율 (선택 사항)
+// ============================================
+model ProductRewardRate {
+  id        Int    @id @default(autoincrement())
+  mallId    String @map("mall_id")
+  productId String @map("product_id")
+
+  // 상품별 커스텀 요율 (쇼핑몰 기본값보다 우선 적용)
+  reviewerRewardRate Float @default(0.015) @map("reviewer_reward_rate") // 1.5%
+  buyerDiscountRate  Float @default(0.07) @map("buyer_discount_rate") // 7%
+  platformFeeRate    Float @default(0.005) @map("platform_fee_rate")
+
+  // 운영 정보
+  isActive Boolean @default(true) @map("is_active")
+
+  // 타임스탬프
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([mallId, productId])
+  @@index([mallId])
+  @@index([productId])
+  @@map("product_reward_rates")
 }

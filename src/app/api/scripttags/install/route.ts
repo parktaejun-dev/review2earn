@@ -1,6 +1,12 @@
-// src/app/api/scripttags/install/route.ts (최종 개선)
+// src/app/api/scripttags/install/route.ts (최종 버전)
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getValidToken } from '@/lib/refreshToken';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,193 +15,139 @@ export async function POST(request: NextRequest) {
 
     if (!mallId) {
       return NextResponse.json(
-        { success: false, error: 'Mall ID가 필요합니다.' },
-        { 
-          status: 400,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
-        }
+        { success: false, error: 'mallId is required' },
+        { status: 400, headers: CORS_HEADERS }
       );
     }
 
-    // DB에서 토큰 조회
-    const mallSettings = await prisma.mallSettings.findUnique({
-      where: { mallId },
-    });
+    console.log(`📦 [ScriptTag Install] Starting for ${mallId}...`);
 
-    if (!mallSettings || !mallSettings.accessToken) {
-      return NextResponse.json(
-        { success: false, error: 'OAuth 인증이 필요합니다.' },
-        { 
-          status: 401,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
-        }
-      );
-    }
+    // ⭐ 자동 토큰 갱신
+    const accessToken = await getValidToken(mallId);
 
-    const accessToken = mallSettings.accessToken;
     const scriptUrl = 'https://review2earn.vercel.app/scripts/review-consent.js';
 
-    // ⭐ 개선 1: API 버전 헤더 추가
-    const cafe24Headers = {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'X-Cafe24-Api-Version': '2024-03-01', // ⭐ API 버전 고정
-    };
-
     // 1. 기존 ScriptTag 확인
-    const checkResponse = await fetch(
-      `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
-      { headers: cafe24Headers }
-    );
+    const checkUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
+    const checkResponse = await fetch(checkUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': '2024-03-01',
+      },
+    });
 
     if (!checkResponse.ok) {
       const errorData = await checkResponse.json();
-      console.error('❌ ScriptTags 조회 실패:', errorData);
+      console.error(`❌ [ScriptTag Install] Check failed:`, errorData);
       
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'ScriptTags 조회 실패', 
+        {
+          success: false,
+          error: 'Failed to check existing ScriptTags',
           details: errorData,
-          // ⭐ 개선 2: 상세 에러 정보
-          errorCode: errorData.error?.code,
-          errorMessage: errorData.error?.message,
         },
-        { 
-          status: checkResponse.status,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
-        }
+        { status: checkResponse.status, headers: CORS_HEADERS }
       );
     }
 
     const existingTags = await checkResponse.json();
 
-    // 이미 설치된 스크립트 확인
+    // 이미 설치 확인
     const alreadyInstalled = existingTags.scripttags?.some(
-      (tag: { src: string }) => tag.src === scriptUrl
+      (tag: any) => tag.src === scriptUrl
     );
 
     if (alreadyInstalled) {
+      console.log(`ℹ️ [ScriptTag Install] Already installed for ${mallId}`);
+      
       return NextResponse.json(
         {
           success: true,
-          message: '✅ 이미 설치되어 있습니다!',
-          scriptLocation: scriptUrl,
-          alreadyInstalled: true, // ⭐ 플래그 추가
+          message: 'ScriptTag already installed',
+          alreadyInstalled: true,
+          scriptUrl,
         },
-        {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
-        }
+        { headers: CORS_HEADERS }
       );
     }
 
     // 2. ScriptTag 설치
-    const installResponse = await fetch(
-      `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
-      {
-        method: 'POST',
-        headers: cafe24Headers,
-        body: JSON.stringify({
-          request: {
-            src: scriptUrl,
-            display_location: ['ALL'], // 모든 페이지
-            exclude_path: [],
-            integrity: null,
-            skin_no: [1],
-          },
-        }),
-      }
-    );
+    const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
+    const installResponse = await fetch(installUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': '2024-03-01',
+      },
+      body: JSON.stringify({
+        request: {
+          src: scriptUrl,
+          display_location: ['BOARD_WRITE_REVIEW'], // 리뷰 작성 페이지만
+          exclude_path: [],
+          integrity: '',
+          skin_no: [1],
+        },
+      }),
+    });
 
     if (!installResponse.ok) {
       const errorData = await installResponse.json();
-      console.error('❌ ScriptTag 설치 실패:', errorData);
+      console.error(`❌ [ScriptTag Install] Installation failed:`, errorData);
       
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'ScriptTag 설치 실패', 
+        {
+          success: false,
+          error: 'ScriptTag installation failed',
           details: errorData,
-          // ⭐ 개선 2: 상세 에러 정보
           errorCode: errorData.error?.code,
           errorMessage: errorData.error?.message,
         },
-        { 
-          status: installResponse.status,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          }
-        }
+        { status: installResponse.status, headers: CORS_HEADERS }
       );
     }
 
     const result = await installResponse.json();
+    console.log(`✅ [ScriptTag Install] Success for ${mallId}:`, result.scripttag?.script_no);
 
     return NextResponse.json(
       {
         success: true,
-        message: '✅ ScriptTag 설치 성공!',
-        data: result,
-        scriptLocation: scriptUrl,
-        scriptNo: result.scripttag?.script_no, // ⭐ Script ID 반환
+        message: 'ScriptTag installed successfully',
+        data: result.scripttag,
+        scriptUrl,
+        scriptNo: result.scripttag?.script_no,
       },
-      {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        }
-      }
+      { headers: CORS_HEADERS }
     );
-
   } catch (error) {
-    console.error('❌ ScriptTag Install Error:', error);
-    
+    console.error('❌ [ScriptTag Install] Error:', error);
+
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '카페24 인증이 필요합니다',
+          needsAuth: true,
+        },
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: '서버 오류',
-        // ⭐ 개선 2: 에러 메시지 포함
-        details: error instanceof Error ? error.message : 'Unknown error',
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
       },
-      { 
-        status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        }
-      }
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 }
 
-// OPTIONS 핸들러 (CORS Preflight)
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
+    headers: CORS_HEADERS,
   });
 }

@@ -1,6 +1,6 @@
-// src/app/api/scripttags/uninstall/route.ts (최종 개선)
+// src/app/api/scripttags/uninstall/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getValidToken } from '@/lib/refreshToken';
 
 interface ScriptTag {
   script_no: number;
@@ -12,7 +12,6 @@ interface ListResponse {
   scripttags: ScriptTag[];
 }
 
-// ⭐ CORS 헤더 상수
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -24,12 +23,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { mallId } = body;
 
-    // ⭐ 개선 1: mallId만 필요 (accessToken은 DB에서 조회)
     if (!mallId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'mallId가 필요합니다.'
+          error: 'mallId is required',
         },
         { 
           status: 400,
@@ -38,27 +36,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🗑️ ScriptTag 제거 시작:', mallId);
+    console.log(`🗑️ [ScriptTag Uninstall] Starting for ${mallId}...`);
 
-    // ⭐ 개선 2: Prisma로 accessToken 조회
-    const mallSettings = await prisma.mallSettings.findUnique({
-      where: { mallId },
-    });
-
-    if (!mallSettings || !mallSettings.accessToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'OAuth 인증이 필요합니다.'
-        },
-        { 
-          status: 401,
-          headers: CORS_HEADERS
-        }
-      );
-    }
-
-    const accessToken = mallSettings.accessToken;
+    // ⭐ 자동 토큰 갱신 (개선!)
+    const accessToken = await getValidToken(mallId);
 
     // ScriptTag 목록 조회
     const listUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
@@ -67,17 +48,19 @@ export async function POST(request: NextRequest) {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2024-03-01'
-      }
+        'X-Cafe24-Api-Version': '2024-03-01',
+      },
     });
 
     if (!listResponse.ok) {
       const errorData = await listResponse.json();
+      console.error(`❌ [ScriptTag Uninstall] List failed:`, errorData);
+      
       return NextResponse.json(
         {
           success: false,
-          error: 'ScriptTag 목록 조회 실패',
-          details: errorData
+          error: 'Failed to list ScriptTags',
+          details: errorData,
         },
         { 
           status: listResponse.status,
@@ -88,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const listData = await listResponse.json() as ListResponse;
     
-    // ⭐ 개선 3: 필터 조건 업데이트 (review-consent.js 기준)
+    // Review2Earn 스크립트 필터 (3가지 조건)
     const review2earnTags = listData.scripttags?.filter((tag: ScriptTag) => 
       tag.src?.includes('review2earn.vercel.app') || 
       tag.src?.includes('review-consent.js') ||
@@ -96,10 +79,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (!review2earnTags || review2earnTags.length === 0) {
+      console.log(`ℹ️ [ScriptTag Uninstall] No scripts found for ${mallId}`);
+      
       return NextResponse.json(
         {
           success: true,
-          message: 'ℹ️ 제거할 ScriptTag가 없습니다.',
+          message: 'No Review2Earn scripts to uninstall',
           removedCount: 0,
           totalFound: 0,
         },
@@ -107,9 +92,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📋 발견된 ScriptTag: ${review2earnTags.length}개`);
+    console.log(`📋 [ScriptTag Uninstall] Found ${review2earnTags.length} script(s)`);
 
-    // 삭제 실행
+    // 일괄 삭제 실행
     const deleteResults = [];
     for (const tag of review2earnTags) {
       try {
@@ -119,8 +104,8 @@ export async function POST(request: NextRequest) {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-            'X-Cafe24-Api-Version': '2024-03-01'
-          }
+            'X-Cafe24-Api-Version': '2024-03-01',
+          },
         });
 
         if (deleteResponse.ok) {
@@ -129,7 +114,7 @@ export async function POST(request: NextRequest) {
             src: tag.src,
             success: true 
           });
-          console.log(`✅ ScriptTag 제거 성공: ${tag.script_no} (${tag.src})`);
+          console.log(`✅ [ScriptTag Uninstall] Removed: ${tag.script_no} (${tag.src})`);
         } else {
           const errorData = await deleteResponse.json();
           deleteResults.push({ 
@@ -138,10 +123,10 @@ export async function POST(request: NextRequest) {
             success: false, 
             error: errorData 
           });
-          console.error(`❌ ScriptTag 제거 실패: ${tag.script_no}`, errorData);
+          console.error(`❌ [ScriptTag Uninstall] Failed: ${tag.script_no}`, errorData);
         }
       } catch (error) {
-        console.error(`❌ ScriptTag 제거 중 오류: ${tag.script_no}`, error);
+        console.error(`❌ [ScriptTag Uninstall] Error: ${tag.script_no}`, error);
         deleteResults.push({ 
           script_no: tag.script_no, 
           src: tag.src,
@@ -153,24 +138,38 @@ export async function POST(request: NextRequest) {
 
     const successCount = deleteResults.filter(r => r.success).length;
 
+    console.log(`✅ [ScriptTag Uninstall] Completed: ${successCount}/${review2earnTags.length} removed`);
+
     return NextResponse.json(
       {
         success: successCount > 0,
-        message: `✅ ${successCount}개의 ScriptTag를 제거했습니다.`,
+        message: `${successCount} ScriptTag(s) uninstalled successfully`,
         removedCount: successCount,
         totalFound: review2earnTags.length,
         failedCount: review2earnTags.length - successCount,
-        details: deleteResults
+        details: deleteResults,
       },
       { headers: CORS_HEADERS }
     );
 
   } catch (error) {
-    console.error('❌ ScriptTag uninstall error:', error);
+    console.error('❌ [ScriptTag Uninstall] Error:', error);
+
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '카페24 인증이 필요합니다',
+          needsAuth: true,
+        },
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       },
       { 
         status: 500,
@@ -180,15 +179,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ⭐ 개선 4: OPTIONS 핸들러 추가
 export async function OPTIONS() {
-  // request 파라미터 제거
   return new NextResponse(null, {
     status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
+    headers: CORS_HEADERS,
   });
 }
