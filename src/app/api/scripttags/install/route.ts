@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. 새 ScriptTag 설치 (✅ display_location: FRONT 추가 - 정석 방법)
+    // 2. 새 ScriptTag 설치 (✅ display_location: 'BOARD_WRITE')
     const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     const installResponse = await fetch(installUrl, {
       method: 'POST',
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['FRONT'], // ✅ 정석: 프론트엔드 모든 페이지에 로드
+          display_location: ['BOARD_WRITE'], // 
           exclude_path: [],
           integrity: '',
           skin_no: [1],
