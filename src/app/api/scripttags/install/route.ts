@@ -1,4 +1,4 @@
-// src/app/api/scripttags/install/route.ts (최종 수정 버전)
+// src/app/api/scripttags/install/route.ts (수정 버전 2)
 import { NextRequest, NextResponse } from 'next/server';
 import { getValidToken } from '@/lib/refreshToken';
 
@@ -27,9 +27,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`📦 [ScriptTag Install] Starting for ${mallId}...`);
 
-    // ⭐ 자동 토큰 갱신
     const accessToken = await getValidToken(mallId);
-
     const scriptUrl = 'https://review2earn.vercel.app/scripts/review-consent.js';
 
     // 1. 기존 ScriptTag 확인
@@ -58,7 +56,6 @@ export async function POST(request: NextRequest) {
 
     const existingTags = await checkResponse.json();
 
-    // 이미 설치 확인
     const alreadyInstalled = existingTags.scripttags?.some(
       (tag: ScriptTag) => tag.src === scriptUrl
     );
@@ -77,7 +74,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. ScriptTag 설치 (✅ display_location을 ALL로 변경)
+    // 2. ScriptTag 설치 (display_location 제거)
     const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     const installResponse = await fetch(installUrl, {
       method: 'POST',
@@ -89,7 +86,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['ALL'], // ✅ 모든 페이지에 로드 (리뷰 페이지에서 스크립트가 자체 필터링)
+          // display_location 제거 - 모든 페이지에 로드
           exclude_path: [],
           integrity: '',
           skin_no: [1],
@@ -125,7 +122,7 @@ export async function POST(request: NextRequest) {
         scriptNo: result.scripttag?.script_no,
       },
       { headers: CORS_HEADERS }
-    );
+      );
   } catch (error) {
     console.error('❌ [ScriptTag Install] Error:', error);
 
