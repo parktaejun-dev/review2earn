@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  let state = searchParams.get('state');
+  const state = searchParams.get('state'); // ✅ const로 변경
   const error = searchParams.get('error');
 
   if (error) {
