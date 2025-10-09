@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['ALL'], // ✅ 모든 페이지 (대문자 ALL)
+          display_location: ['BOARD'], // ✅ 'BOARD'
           exclude_path: [],
           integrity: '',
           skin_no: [1],
