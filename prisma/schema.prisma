@@ -1,6 +1,6 @@
 // ============================================
-// Review2Earn (리뷰투언) v3.0
-// Prisma Schema - Production Ready
+// Review2Earn (리뷰투언) v3.1
+// Prisma Schema - MVP 핵심 기능 추가
 // Last Updated: 2025-10-09
 // ============================================
 
@@ -24,12 +24,12 @@ model MallSettings {
   accessToken    String?   @map("access_token")
   refreshToken   String?   @map("refresh_token")
   tokenExpiresAt DateTime? @map("token_expires_at")
-  scopes         String? // OAuth 권한 범위 (예: "read_product,write_scripttags")
+  scopes         String?
 
-  // v3.0 보상 요율 (기본값 설정 - NOT NULL)
-  reviewerRewardRate Float @default(0.01) @map("reviewer_reward_rate") // 리뷰어 적립금 요율 (1%)
-  buyerDiscountRate  Float @default(0.05) @map("buyer_discount_rate") // 구매자 할인 요율 (5%)
-  platformFeeRate    Float @default(0.005) @map("platform_fee_rate") // 플랫폼 수수료 (0.5%)
+  // v3.0 보상 요율
+  reviewerRewardRate Float @default(0.01) @map("reviewer_reward_rate")
+  buyerDiscountRate  Float @default(0.05) @map("buyer_discount_rate")
+  platformFeeRate    Float @default(0.005) @map("platform_fee_rate")
 
   // 운영 정보
   isActive Boolean @default(true) @map("is_active")
@@ -47,7 +47,7 @@ model MallSettings {
 }
 
 // ============================================
-// 2. 사용자 동의 정보 (추천인 참여 동의)
+// 2. 사용자 동의 정보
 // ============================================
 model Consent {
   id       Int    @id @default(autoincrement())
@@ -93,9 +93,12 @@ model Review {
   content String? @db.Text
   rating  Int?
 
-  // Review2Earn 추천 코드 (유니크 추천 링크 생성용)
-  referralCode   String  @unique @map("referral_code")
-  participateR2e Boolean @default(true) @map("participate_r2e")
+  // 🆕 v3.1: 추천 링크 통계 추가
+  referralCode    String  @unique @map("referral_code")
+  participateR2e  Boolean @default(true) @map("participate_r2e")
+  clickCount      Int     @default(0) @map("click_count")
+  conversionCount Int     @default(0) @map("conversion_count")
+  totalRevenue    Float   @default(0) @map("total_revenue")
 
   // 타임스탬프
   createdAt DateTime @default(now()) @map("created_at")
@@ -142,22 +145,19 @@ model Transaction {
 }
 
 // ============================================
-// 5. 상품별 커스텀 보상 요율 (선택 사항)
+// 5. 상품별 커스텀 보상 요율
 // ============================================
 model ProductRewardRate {
   id        Int    @id @default(autoincrement())
   mallId    String @map("mall_id")
   productId String @map("product_id")
 
-  // 상품별 커스텀 요율 (쇼핑몰 기본값보다 우선 적용)
-  reviewerRewardRate Float @default(0.015) @map("reviewer_reward_rate") // 1.5%
-  buyerDiscountRate  Float @default(0.07) @map("buyer_discount_rate") // 7%
+  reviewerRewardRate Float @default(0.015) @map("reviewer_reward_rate")
+  buyerDiscountRate  Float @default(0.07) @map("buyer_discount_rate")
   platformFeeRate    Float @default(0.005) @map("platform_fee_rate")
 
-  // 운영 정보
   isActive Boolean @default(true) @map("is_active")
 
-  // 타임스탬프
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
