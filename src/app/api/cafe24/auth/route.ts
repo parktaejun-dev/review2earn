@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     client_id: process.env.CAFE24_CLIENT_ID!,
     state: mallId,
     redirect_uri: process.env.CAFE24_REDIRECT_URI!,
-    scope: 'mall.read_product,mall.write_scripttag,mall.read_store', // Scope도 수정
+    scope: 'mall.read_product,mall.write_scripttag,mall.read_store', // ✅ 수정!
   });
 
   const fullAuthUrl = `${authUrl}?${params.toString()}`;
