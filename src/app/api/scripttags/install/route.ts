@@ -1,4 +1,4 @@
-// src/app/api/scripttags/install/route.ts
+// src/app/api/scripttags/install/route.ts (최종 수정)
 import { NextRequest, NextResponse } from 'next/server';
 import { getValidToken } from '@/lib/refreshToken';
 
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. 새 ScriptTag 설치 (✅ display_location: FRONT)
+    // 2. 새 ScriptTag 설치 (✅ display_location 제거)
     const installUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
     const installResponse = await fetch(installUrl, {
       method: 'POST',
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         request: {
           src: scriptUrl,
-          display_location: ['FRONT'], // ✅ 프론트엔드 모든 페이지에 로드
+          // ✅ display_location 제거 - 카페24 기본값 사용
           exclude_path: [],
           integrity: '',
           skin_no: [1],
