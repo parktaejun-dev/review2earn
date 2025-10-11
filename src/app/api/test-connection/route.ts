@@ -1,18 +1,25 @@
-// src/app/api/test-connection/route.ts
+import { CAFE24_CONFIG } from '@/lib/cafe24-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const mallId = searchParams.get('mall_id') || 'dhdshop';
+    const mallId = searchParams.get('mall_id');
+
+    if (!mallId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'mall_id parameter is required',
+          usage: 'GET /api/test-connection?mall_id=YOUR_MALL_ID'
+        },
+        { status: 400 }
+      );
+    }
 
     console.log('🎯 Test Connection - mall_id:', mallId);
 
-    // ❌ 이전 (삭제된 테이블)
-    // const mallSettings = await prisma.installationToken.findUnique({
-
-    // ✅ 수정 (통합된 테이블)
     const mallSettings = await prisma.mallSettings.findUnique({
       where: {
         mallId: mallId
@@ -24,21 +31,22 @@ export async function GET(request: NextRequest) {
         success: false,
         message: '⚠️ OAuth 인증이 필요합니다. 먼저 카페24 연결을 완료하세요.',
         oauth_status: 'Not Connected',
-        mall_id: mallId
+        mall_id: mallId,
+        next_step: `Visit: ${process.env.NEXT_PUBLIC_APP_URL}/oauth/install?mall_id=${mallId}`
       });
     }
 
-    // Cafe24 API 테스트
-    const response = await fetch(
-      `https://${mallId}.cafe24api.com/api/v2/admin/products?limit=1`,
-      {
-        headers: {
-          'Authorization': `Bearer ${mallSettings.accessToken}`,
-          'Content-Type': 'application/json',
-          'X-Cafe24-Api-Version': '2025-09-01'
-        }
+    const apiUrl = `https://${mallId}.cafe24api.com/api/v2/admin/products?limit=1`;
+    
+    console.log('🔗 Testing Cafe24 API:', apiUrl);
+
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${mallSettings.accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION
       }
-    );
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -49,7 +57,9 @@ export async function GET(request: NextRequest) {
         message: '❌ Cafe24 API 연결 실패',
         token_status: 'Invalid or Expired',
         error: errorText,
-        mall_id: mallId
+        mall_id: mallId,
+        http_status: response.status,
+        next_step: 'Please re-authenticate with Cafe24'
       }, { status: response.status });
     }
 
@@ -59,10 +69,12 @@ export async function GET(request: NextRequest) {
       success: true,
       message: '✅ Cafe24 연결 성공!',
       mall_id: mallId,
-      api_version: '2025-09-01',
+      api_version: CAFE24_CONFIG.API_VERSION,
       products_count: data.products?.length || 0,
       token_status: 'Active',
-      oauth_status: 'Complete'
+      oauth_status: 'Complete',
+      token_expires_at: mallSettings.tokenExpiresAt,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {

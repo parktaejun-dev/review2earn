@@ -1,3 +1,4 @@
+import { CAFE24_CONFIG } from "@/lib/cafe24-config";
 // src/app/api/webhooks/uninstall/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${mallSettings.accessToken}`,
-              'X-Cafe24-Api-Version': '2024-03-01',
+              'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION,
             },
           }
         )

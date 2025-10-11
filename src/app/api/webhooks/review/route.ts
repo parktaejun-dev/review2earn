@@ -1,3 +1,4 @@
+import { CAFE24_CONFIG } from "@/lib/cafe24-config";
 // src/app/api/webhooks/review/route.ts
 // v6.0: 회원 전용 (Member Only) - 레퍼럴 코드 시스템
 import { NextRequest, NextResponse } from 'next/server'
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
           headers: {
             'Authorization': `Bearer ${mallSettings.accessToken}`,
             'Content-Type': 'application/json',
-            'X-Cafe24-Api-Version': '2025-09-01',
+            'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION,
           },
         })
 

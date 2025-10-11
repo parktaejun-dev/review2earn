@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/locale-utils";
 // src/app/admin/dashboard/page.tsx
 'use client'
 
@@ -247,7 +248,7 @@ export default function Dashboard() {
                             {tx.type === 'REFERRAL_REWARD' ? '추천 보상' : tx.type}
                           </p>
                           <p className="text-sm text-gray-500">
-                            {new Date(tx.earnedAt).toLocaleDateString('ko-KR')}
+                            {new Date(tx.earnedAt).formatDate()}
                           </p>
                         </div>
                         <div className="text-right">

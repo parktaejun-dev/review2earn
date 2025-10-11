@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/locale-utils";
 // src/app/r2e/dashboard/page.tsx
 'use client'
 
@@ -121,7 +122,7 @@ export default function R2EDashboard() {
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{tx.description}</p>
                           <p className="text-sm text-gray-500">
-                            {new Date(tx.earnedAt).toLocaleDateString('ko-KR', {
+                            {new Date(tx.earnedAt).formatDate(, {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',

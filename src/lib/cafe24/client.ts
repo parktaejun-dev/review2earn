@@ -1,3 +1,4 @@
+import { CAFE24_CONFIG } from "@/lib/cafe24-config";
 // src/lib/cafe24/client.ts
 import { Cafe24Customer } from '@/types/cafe24'
 
@@ -16,7 +17,7 @@ export class Cafe24ApiClient {
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2025-09-01',
+        'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION,
         ...options?.headers,
       },
     })

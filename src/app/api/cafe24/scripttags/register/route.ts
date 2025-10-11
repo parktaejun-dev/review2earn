@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { CAFE24_CONFIG } from "@/lib/cafe24-config";
+import { prisma } from "@/lib/prisma";
+// 📂 src/app/api/cafe24/scripttags/register/route.ts
+// Review2Earn v6.0 - ScriptTag Registration
+// Widget 스크립트를 동적으로 등록
 
-const prisma = new PrismaClient();
+import { NextResponse } from 'next/server';
+
 
 export async function POST(request: Request) {
   try {
@@ -27,6 +31,11 @@ export async function POST(request: Request) {
 
     console.log('✅ Store found:', mallId);
 
+    // ✅ 환경변수에서 동적으로 URL 생성
+    const widgetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/widget.js`;
+    
+    console.log('🔗 Widget URL:', widgetUrl);
+
     const response = await fetch(
       `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
       {
@@ -34,15 +43,15 @@ export async function POST(request: Request) {
         headers: {
           'Authorization': `Bearer ${store.accessToken}`,
           'Content-Type': 'application/json',
-          'X-Cafe24-Api-Version': '2024-03-01',
+          'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION,
         },
         body: JSON.stringify({
           request: {
-            shop_no: 1,
-            src: 'https://review2earn.vercel.app/widget.js',
+            shop_no: parseInt(process.env.DEFAULT_SHOP_NO || "1"),
+            src: widgetUrl,  // ✅ 환경변수 사용
             display_location: ['FRONT_PRODUCT_DETAIL'],
             exclude_path: [],
-            skin_no: [1],
+            skin_no: [parseInt(process.env.DEFAULT_SKIN_NO || "1")],
           },
         }),
       }
@@ -73,6 +82,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       scriptTag: data.scripttag,
+      widgetUrl,  // ✅ 응답에 URL 포함
     });
 
   } catch (error) {

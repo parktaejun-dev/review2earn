@@ -119,15 +119,15 @@ export async function GET(request: NextRequest) {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${tokens.access_token}`,
-            'X-Cafe24-Api-Version': '2024-03-01',
+            'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION,
           },
           body: JSON.stringify({
-            shop_no: 1,
+            shop_no: parseInt(process.env.DEFAULT_SHOP_NO || "1"),
             request: {
               src: widgetUrl,
               display_location: ['BOARD_WRITE'], // 리뷰 작성 페이지
               exclude_path: [],
-              skin_no: [1],
+              skin_no: [parseInt(process.env.DEFAULT_SKIN_NO || "1")],
             },
           }),
         }

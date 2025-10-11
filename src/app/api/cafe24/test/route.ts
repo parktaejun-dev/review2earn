@@ -1,3 +1,4 @@
+import { CAFE24_CONFIG } from "@/lib/cafe24-config";
 // 카페24 API 연결 테스트
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest) {
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
-                'X-Cafe24-Api-Version': '2024-06-01'
+                import { CAFE24_CONFIG } from '@/lib/cafe24-config';
+'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION
             }
         });
         
