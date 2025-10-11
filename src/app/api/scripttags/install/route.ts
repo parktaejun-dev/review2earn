@@ -1,4 +1,4 @@
-// src/app/api/scripttags/install/route.ts (새 파일)
+// src/app/api/scripttags/install/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
         message: '쇼핑몰 ID를 찾을 수 없습니다.'
       }, { status: 400 })
     }
+
+    console.log('📦 Installing script for:', cookieMallId)
 
     // DB에서 access token 가져오기
     const mall = await prisma.mallSettings.findUnique({
@@ -42,8 +44,10 @@ export async function POST(request: NextRequest) {
           request: {
             shop_no: 1,
             src: scriptUrl,
-            display_location: ['PRODUCT_DETAIL', 'BOARD_WRITE'],
-            exclude_path: []
+            display_location: ['ALL'], // ✅ 배열로 유지
+            exclude_path: [],
+            integrity: null,
+            skin_no: [1]
           }
         })
       }
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.text()
-      console.error('ScriptTag install error:', errorData)
+      console.error('❌ ScriptTag install error:', errorData)
       
       return NextResponse.json({
         success: false,
@@ -64,12 +68,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '스크립트가 성공적으로 설치되었습니다!',
+      message: '✅ 스크립트가 성공적으로 설치되었습니다!',
       data
     })
 
   } catch (error) {
-    console.error('Script install error:', error)
+    console.error('❌ Script install error:', error)
     return NextResponse.json({
       success: false,
       message: '스크립트 설치 중 오류 발생'
