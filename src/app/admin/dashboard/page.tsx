@@ -1,4 +1,4 @@
-// src/app/admin/dashboard/page.tsx (수정)
+// src/app/admin/dashboard/page.tsx (handleApiTest 함수만 수정)
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -19,7 +19,6 @@ export default function Dashboard() {
   const [scriptMessage, setScriptMessage] = useState('')
 
   useEffect(() => {
-    // 🆕 localStorage에서 mall_id 확인 (쿠키 대신)
     const savedMallId = localStorage.getItem('user_mall_id')
     const isAlreadyConnected = localStorage.getItem('is_connected')
     
@@ -28,7 +27,6 @@ export default function Dashboard() {
       setIsConnected(true)
       checkScriptStatus()
     } else {
-      // 쿠키 확인 (하위 호환성)
       const cookieMallId = document.cookie
         .split('; ')
         .find(row => row.startsWith('cafe24_mall_id='))
@@ -37,7 +35,6 @@ export default function Dashboard() {
       if (cookieMallId) {
         setMallId(cookieMallId)
         setIsConnected(true)
-        // localStorage에도 저장
         localStorage.setItem('user_mall_id', cookieMallId)
         localStorage.setItem('is_connected', 'true')
         checkScriptStatus()
@@ -63,12 +60,13 @@ export default function Dashboard() {
     }
   }
 
+  // 🆕 GET 메서드로 변경 + mallId 쿼리 파라미터 추가
   const handleApiTest = async () => {
     try {
       setApiTestResult(null)
       
-      const response = await fetch('/api/test-connection', {
-        method: 'POST'
+      const response = await fetch(`/api/test-connection?mall_id=${mallId}`, {
+        method: 'GET'  // ✅ POST → GET 변경
       })
       
       const result = await response.json()
@@ -83,7 +81,6 @@ export default function Dashboard() {
   }
 
   const handleReconnect = () => {
-    // 🆕 localStorage + 쿠키 모두 삭제
     localStorage.removeItem('user_mall_id')
     localStorage.removeItem('is_connected')
     
@@ -145,7 +142,6 @@ export default function Dashboard() {
   }
 
   const handleLogout = () => {
-    // 🆕 localStorage + 쿠키 모두 삭제
     localStorage.removeItem('user_mall_id')
     localStorage.removeItem('is_connected')
     
