@@ -1,60 +1,53 @@
-// 📂 src/lib/logger.ts
-// Review2Earn v6.0 - Production Logger
+// src/lib/logger.ts
+type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-interface LogMetadata {
-  [key: string]: any;
+interface LogMessage {
+  level: LogLevel;
+  message: string;
+  data?: Record<string, unknown>;
+  timestamp: string;
 }
 
-class Logger {
-  private isDevelopment = process.env.NODE_ENV === 'development';
+export const logger = {
+  info: (message: string, data?: Record<string, unknown>) => {
+    const log: LogMessage = {
+      level: 'info',
+      message,
+      data,
+      timestamp: new Date().toISOString()
+    };
+    console.log(JSON.stringify(log));
+  },
 
-  private formatMessage(level: LogLevel, message: string, metadata?: LogMetadata): string {
-    const timestamp = new Date().toISOString();
-    
-    if (this.isDevelopment) {
-      const emoji = { debug: '🔍', info: 'ℹ️', warn: '⚠️', error: '❌' }[level];
-      return `${emoji} [${level.toUpperCase()}] ${message}`;
-    }
-    
-    return JSON.stringify({ timestamp, level, message, ...metadata });
-  }
+  warn: (message: string, data?: Record<string, unknown>) => {
+    const log: LogMessage = {
+      level: 'warn',
+      message,
+      data,
+      timestamp: new Date().toISOString()
+    };
+    console.warn(JSON.stringify(log));
+  },
 
-  debug(message: string, metadata?: LogMetadata) {
-    if (this.isDevelopment) {
-      console.log(this.formatMessage('debug', message, metadata));
-    }
-  }
+  error: (message: string, data?: Record<string, unknown>) => {
+    const log: LogMessage = {
+      level: 'error',
+      message,
+      data,
+      timestamp: new Date().toISOString()
+    };
+    console.error(JSON.stringify(log));
+  },
 
-  info(message: string, metadata?: LogMetadata) {
-    console.log(this.formatMessage('info', message, metadata));
-  }
-
-  warn(message: string, metadata?: LogMetadata) {
-    console.warn(this.formatMessage('warn', message, metadata));
-  }
-
-  error(message: string, error?: Error | unknown, metadata?: LogMetadata) {
-    const errorMeta = error instanceof Error ? {
-      error: error.message,
-      stack: error.stack,
-      ...metadata,
-    } : metadata;
-    
-    console.error(this.formatMessage('error', message, errorMeta));
-  }
-
-  api(method: string, url: string, status: number, duration?: number) {
-    const message = `${method} ${url} - ${status}`;
-    const metadata = { method, url, status, duration };
-    
-    if (status >= 400) {
-      this.error(message, undefined, metadata);
-    } else {
-      this.info(message, metadata);
+  debug: (message: string, data?: Record<string, unknown>) => {
+    if (process.env.NODE_ENV === 'development') {
+      const log: LogMessage = {
+        level: 'debug',
+        message,
+        data,
+        timestamp: new Date().toISOString()
+      };
+      console.debug(JSON.stringify(log));
     }
   }
-}
-
-export const logger = new Logger();
+};

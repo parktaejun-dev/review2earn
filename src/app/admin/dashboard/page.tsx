@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { formatDate } from '@/lib/locale-utils'
 
 interface DashboardStats {
   mallId: string
@@ -18,7 +17,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const mallId = 'testshop' // Replace with actual mall ID
+        const mallId = 'testshop'
         const response = await fetch(`/api/admin/${mallId}/stats`)
         const data = await response.json()
         setStats(data)

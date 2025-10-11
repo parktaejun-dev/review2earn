@@ -45,3 +45,9 @@ next-env.d.ts
 review2earn-oauth-backup-*
 
 /src/generated/prisma
+
+# Development Scripts
+*.sh
+.backup/
+PRODUCTION_FIXES.md
+NEXT_STEPS.md

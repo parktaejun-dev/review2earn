@@ -1,3 +1,4 @@
+import { CAFE24_CONFIG } from '@/lib/cafe24-config';
 // src/app/api/cafe24/callback/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
