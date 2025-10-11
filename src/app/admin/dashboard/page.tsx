@@ -1,4 +1,4 @@
-// src/app/admin/dashboard/page.tsx (handleApiTest 함수만 수정)
+// src/app/admin/dashboard/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -25,6 +25,10 @@ export default function Dashboard() {
     if (savedMallId && isAlreadyConnected === 'true') {
       setMallId(savedMallId)
       setIsConnected(true)
+      
+      // ✅ 쿠키에도 mallId 저장 (API에서 사용)
+      document.cookie = `cafe24_mall_id=${savedMallId}; path=/; max-age=86400`
+      
       checkScriptStatus()
     } else {
       const cookieMallId = document.cookie
@@ -57,16 +61,16 @@ export default function Dashboard() {
     } catch (error) {
       console.error('스크립트 상태 확인 오류:', error)
       setScriptStatus('not_installed')
+      setScriptMessage('스크립트 상태를 확인할 수 없습니다.')
     }
   }
 
-  // 🆕 GET 메서드로 변경 + mallId 쿼리 파라미터 추가
   const handleApiTest = async () => {
     try {
       setApiTestResult(null)
       
       const response = await fetch(`/api/test-connection?mall_id=${mallId}`, {
-        method: 'GET'  // ✅ POST → GET 변경
+        method: 'GET'
       })
       
       const result = await response.json()
