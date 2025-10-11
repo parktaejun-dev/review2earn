@@ -1,9 +1,8 @@
 // src/app/api/webhooks/order/route.ts
-// v5.2 완전 수정판 - TypeScript 에러 해결
+// v6.0: R2EAccount.referralCode 사용, 멀티몰 지원
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// ✅ 타입 정의 추가
 interface R2ETransactionResult {
   id: string
   amount: number
@@ -14,14 +13,14 @@ interface R2ETransactionResult {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log('📦 Order Webhook received:', JSON.stringify(body, null, 2))
+    console.log('📦 [v6.0] Order Webhook received:', JSON.stringify(body, null, 2))
 
     const resource = body.resource
-    const mallId = body.mall_id || body.resource?.mall_id || 'dhdshop'
+    const mallId = body.mall_id || body.resource?.mall_id
 
-    if (!resource) {
+    if (!resource || !mallId) {
       return NextResponse.json(
-        { success: false, error: 'Missing resource data' },
+        { success: false, error: 'Missing resource or mall_id' },
         { status: 400 }
       )
     }
@@ -42,7 +41,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ============================================
     // 1. Referer에서 추천 코드 추출
+    // ============================================
     let referralCode: string | null = null
 
     if (referer) {
@@ -64,22 +65,21 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 2. 리뷰 찾기 (r2eUser 포함)
-    const review = await prisma.review.findUnique({
-      where: {
-        referralCode_mallId: {
-          referralCode,
-          mallId,
-        },
-      },
+    // ============================================
+    // 2. ✅ v6.0: R2EAccount 직접 조회 (referralCode로)
+    // ============================================
+    const r2eAccount = await prisma.r2EAccount.findUnique({
+      where: { referralCode },
       include: {
-        mall: true,
-        r2eUser: true,
+        reviews: {
+          where: { mallId },
+          take: 1, // 최근 리뷰 하나만
+        },
       },
     })
 
-    if (!review) {
-      console.log('❌ Review not found for referral code:', referralCode)
+    if (!r2eAccount) {
+      console.log('❌ R2E account not found for referral code:', referralCode)
       return NextResponse.json({
         success: false,
         reason: 'invalid_referral',
@@ -87,37 +87,58 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    if (!review.r2eUser) {
-      console.log('❌ R2E user not linked to review:', review.id)
+    if (!r2eAccount.reviews || r2eAccount.reviews.length === 0) {
+      console.log('❌ No reviews found for this R2E account in mall:', mallId)
       return NextResponse.json({
         success: false,
-        reason: 'no_r2e_account',
-        message: 'R2E account not linked to this review',
+        reason: 'no_reviews',
+        message: 'No reviews found for this referral code',
       })
     }
 
-    console.log('✅ Review found:', {
+    const review = r2eAccount.reviews[0] // 첫 번째 리뷰 사용
+
+    console.log('✅ R2E account found:', {
+      r2eAccountId: r2eAccount.id,
+      email: r2eAccount.email,
+      referralCode: r2eAccount.referralCode,
       reviewId: review.id,
-      memberId: review.memberId,
-      r2eUserId: review.r2eUser.id,
     })
 
-    // 3. 보상 계산 및 거래 생성
-    const r2eTransactions: R2ETransactionResult[] = [] // ✅ 타입 지정
+    // ============================================
+    // 3. MallSettings 조회 (수수료율)
+    // ============================================
+    const mallSettings = await prisma.mallSettings.findUnique({
+      where: { mallId },
+    })
+
+    if (!mallSettings || !mallSettings.isActive) {
+      console.log('❌ Mall is inactive or not found:', mallId)
+      return NextResponse.json({
+        success: false,
+        reason: 'mall_inactive',
+        message: 'Mall is not active',
+      })
+    }
+
+    // ============================================
+    // 4. 보상 계산 및 거래 생성
+    // ============================================
+    const r2eTransactions: R2ETransactionResult[] = []
     let totalReward = 0
 
-    // v5.1 수수료율
-    const platformFeeRate = 0.0025 // 0.25%
-    const reviewerRewardRate = review.mall?.reviewerRewardRate ?? 0.03 // 3%
+    const platformFeeRate = mallSettings.platformFeeRate || 0.0025 // 0.25%
+    const reviewerRewardRate = mallSettings.reviewerRewardRate || 0.03 // 3%
 
     for (const item of items) {
       const { product_no, product_price, quantity } = item
 
-      // 리뷰 상품과 주문 상품 매칭 확인
-      if (product_no !== review.productNo) {
-        console.log(`⚠️ Product mismatch: ${product_no} !== ${review.productNo}`)
-        continue
-      }
+      // ✅ v6.0: 리뷰 상품과 매칭 (선택적)
+      // 모든 상품에 대해 보상을 줄 수도 있음
+      // if (product_no !== review.productNo) {
+      //   console.log(`⚠️ Product mismatch: ${product_no} !== ${review.productNo}`)
+      //   continue
+      // }
 
       const itemTotal = parseFloat(product_price) * quantity
       const grossReward = Math.floor(itemTotal * reviewerRewardRate)
@@ -125,16 +146,17 @@ export async function POST(request: NextRequest) {
       const netReward = grossReward - platformFee
 
       console.log('💰 Reward calculation:', {
+        product_no,
         itemTotal,
         grossReward,
         platformFee,
         netReward,
       })
 
-      // ✅ R2ETransaction 생성 (모든 필수 필드 포함)
+      // ✅ v6.0: R2ETransaction 생성
       const transaction = await prisma.r2ETransaction.create({
         data: {
-          r2eUserId: review.r2eUser.id,
+          r2eUserId: r2eAccount.id,
           reviewId: review.id,
           mallId,
           type: 'REFERRAL_REWARD',
@@ -144,11 +166,10 @@ export async function POST(request: NextRequest) {
           relatedOrderId: order_id,
           relatedReviewId: review.id,
           referralCode,
-          expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+          expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90일 유효
         },
       })
 
-      // ✅ 타입 안전하게 push
       r2eTransactions.push({
         id: transaction.id,
         amount: transaction.amount,
@@ -166,16 +187,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 4. R2E 계정 잔액 업데이트
+    // ============================================
+    // 5. R2E 계정 잔액 업데이트
+    // ============================================
     await prisma.r2EAccount.update({
-      where: { id: review.r2eUser.id },
+      where: { id: r2eAccount.id },
       data: {
         totalPoints: { increment: totalReward },
         availablePoints: { increment: totalReward },
       },
     })
 
-    // 5. Review 통계 업데이트
+    // ============================================
+    // 6. Review 통계 업데이트
+    // ============================================
     await prisma.review.update({
       where: { id: review.id },
       data: {
@@ -196,7 +221,8 @@ export async function POST(request: NextRequest) {
       data: {
         orderId: order_id,
         reviewId: review.id,
-        r2eUserId: review.r2eUser.id,
+        r2eAccountId: r2eAccount.id,
+        referralCode: r2eAccount.referralCode,
         transactionCount: r2eTransactions.length,
         totalReward,
         message: 'R2E referral reward processed successfully',
@@ -220,7 +246,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    version: 'v5.2',
+    version: 'v6.0',
     timestamp: new Date().toISOString(),
   })
 }

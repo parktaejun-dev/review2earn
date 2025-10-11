@@ -1,7 +1,7 @@
 // ============================================
-// Review2Earn (리뷰투언) v6.0
-// Prisma Schema - 멀티몰 지원 + 익명 레퍼럴 코드
-// Last Updated: 2025-10-11 20:12
+// Review2Earn (리뷰투언) v6.0 - Member Only
+// Prisma Schema - 멀티몰 지원 + 회원 전용 레퍼럴 코드
+// Last Updated: 2025-10-11 21:23
 // ============================================
 
 generator client {
@@ -57,16 +57,16 @@ model MallSettings {
 }
 
 // ============================================
-// 2. R2E 통합 계정 (v6.0 개선)
+// 2. ✅ v6.0: R2E 통합 계정 (회원 전용)
 // ============================================
 model R2EAccount {
   id    String @id @default(cuid())
-  email String @unique
+  email String @unique // ✅ 회원 전용: 항상 실제 이메일
 
   // ✅ v6.0: 익명화된 레퍼럴 코드 (모든 쇼핑몰 공통)
   referralCode String @unique @map("referral_code") // R2E-A7F3B2E1C9D4
 
-  // 비밀번호 (선택)
+  // ✅ v6.0: 비밀번호 (선택)
   password String? // bcrypt 해시
 
   // 통합 포인트
@@ -97,7 +97,7 @@ model R2EAccount {
 }
 
 // ============================================
-// 3. ✅ v6.0 NEW: 멀티몰 연동 테이블
+// 3. ✅ v6.0: 멀티몰 연동 테이블
 // ============================================
 model R2EMallLink {
   id           String     @id @default(cuid())
@@ -106,11 +106,7 @@ model R2EMallLink {
 
   // 쇼핑몰 정보
   mallId       String  @map("mall_id")
-  mallEmail    String? @map("mall_email")    // 쇼핑몰에서 사용하는 이메일 (다를 수 있음)
-  mallMemberId String? @map("mall_member_id") // 쇼핑몰 회원 ID
-
-  // 인증 상태
-  isVerified Boolean @default(false) @map("is_verified")
+  memberId     String? @map("member_id") // ✅ v6.0: 선택 필드로 변경
 
   // 타임스탬프
   createdAt DateTime @default(now()) @map("created_at")
@@ -119,11 +115,12 @@ model R2EMallLink {
   @@unique([r2eAccountId, mallId])
   @@index([mallId])
   @@index([r2eAccountId])
+  @@index([memberId])
   @@map("r2e_mall_links")
 }
 
 // ============================================
-// 4. 리뷰 정보 (v6.0 개선)
+// 4. ✅ v6.0: 리뷰 정보 (회원 전용)
 // ============================================
 model Review {
   id Int @id @default(autoincrement())
@@ -133,10 +130,10 @@ model Review {
   productNo     Int    @map("product_no")
   mallId        String @map("mall_id")
 
-  // 회원 정보
-  memberId    String  @map("member_id")
-  memberEmail String? @map("member_email")
-  r2eUserId   String? @map("r2e_user_id")
+  // ✅ v6.0: 회원 정보 (필수)
+  memberId    String @map("member_id")
+  memberEmail String @map("member_email") // ✅ 항상 실제 이메일
+  r2eUserId   String @map("r2e_user_id")  // ✅ 항상 연결됨
 
   // 리뷰 내용
   content String? @db.Text
@@ -157,7 +154,7 @@ model Review {
 
   // Relations
   mall            MallSettings     @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
-  r2eUser         R2EAccount?      @relation(fields: [r2eUserId], references: [id])
+  r2eUser         R2EAccount       @relation(fields: [r2eUserId], references: [id])
   transactions    Transaction[]
   r2eTransactions R2ETransaction[]
 
@@ -199,7 +196,7 @@ model Transaction {
 }
 
 // ============================================
-// 6. R2E 포인트 거래 내역 (v6.0 개선)
+// 6. ✅ v6.0: R2E 포인트 거래 내역
 // ============================================
 model R2ETransaction {
   id        String @id @default(cuid())

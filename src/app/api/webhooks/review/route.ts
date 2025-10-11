@@ -1,7 +1,8 @@
 // src/app/api/webhooks/review/route.ts
+// v6.0: 회원 전용 (Member Only) - 레퍼럴 코드 시스템
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import crypto from 'crypto'
+import { generateReferralCode } from '@/utils/referralCode'
 
 // Cafe24 Webhook 타입 정의
 interface ReviewWebhookPayload {
@@ -24,7 +25,7 @@ interface ReviewWebhookPayload {
 export async function POST(request: NextRequest) {
   try {
     const body: ReviewWebhookPayload = await request.json()
-    console.log('📥 Review Webhook received:', JSON.stringify(body, null, 2))
+    console.log('📥 [v6.0] Review Webhook received:', JSON.stringify(body, null, 2))
 
     // Webhook 데이터 검증
     if (body.event !== 'board.product.created') {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // mallId 추출 (v5.2: resource에서 가져옴)
+    // mallId 추출
     const mallId = body.resource?.mall_id
     if (!mallId) {
       return NextResponse.json(
@@ -67,7 +68,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🆕 v5.2: MallSettings 확인 (Consent 제거됨)
+    // ============================================
+    // 1. MallSettings 확인
+    // ============================================
     const mallSettings = await prisma.mallSettings.findUnique({
       where: { mallId },
     })
@@ -89,15 +92,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 🆕 v5.2: Cafe24 API로 고객 이메일 조회 (상세 로그 포함)
+    // ============================================
+    // 2. ✅ v6.0: Cafe24 API로 회원 이메일 조회 (필수)
+    // ============================================
     let memberEmail: string | null = null
-    
-    console.log('🔍 Checking accessToken:', {
-      hasToken: !!mallSettings.accessToken,
-      tokenLength: mallSettings.accessToken?.length,
-      tokenPreview: mallSettings.accessToken?.substring(0, 10) + '***',
-      tokenExpiresAt: mallSettings.tokenExpiresAt,
-    })
     
     if (mallSettings.accessToken) {
       try {
@@ -112,12 +110,8 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        console.log('📡 Cafe24 API response status:', response.status)
-
         if (response.ok) {
           const data = await response.json()
-          console.log('📦 Cafe24 API response data:', JSON.stringify(data, null, 2))
-          
           memberEmail = data.customer?.email || null
           
           if (memberEmail) {
@@ -129,30 +123,91 @@ export async function POST(request: NextRequest) {
           const errorText = await response.text()
           console.error('❌ Cafe24 API error:', {
             status: response.status,
-            statusText: response.statusText,
             error: errorText,
           })
         }
       } catch (error) {
-        console.error('⚠️ Failed to get customer email:', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-        })
+        console.error('⚠️ Failed to get customer email:', error)
       }
-    } else {
-      console.warn('⚠️ No accessToken available for mall:', mallId)
     }
     
-    // 🆕 이메일이 없으면 임시 이메일 생성
+    // ✅ v6.0: 이메일 없으면 리뷰 참여 불가 (회원 전용)
     if (!memberEmail) {
-      memberEmail = `${member_id}@${mallId}.temp`
-      console.log('⚠️ Using temporary email:', memberEmail)
+      console.log('❌ No email found - Member only policy')
+      return NextResponse.json({
+        success: false,
+        reason: 'member_only',
+        message: 'Review2Earn is available for members only. Please sign up first.',
+      }, { status: 403 })
     }
 
-    // 추천 코드 생성 (기존 로직 유지)
-    const referralCode = generateReferralCode(member_id, product_no, board_no)
+    // ============================================
+    // 3. ✅ v6.0: R2EAccount 생성 또는 조회 (회원 전용)
+    // ============================================
+    let r2eAccount = await prisma.r2EAccount.findUnique({
+      where: { email: memberEmail },
+    })
 
-    // 리뷰 저장 (upsert 유지)
+    if (!r2eAccount) {
+      // 첫 리뷰 작성자 - 계정 생성
+      const newReferralCode = generateReferralCode() // R2E-XXXXXXXXXXXX
+      
+      r2eAccount = await prisma.r2EAccount.create({
+        data: {
+          email: memberEmail,
+          referralCode: newReferralCode,
+          totalPoints: 0,
+          availablePoints: 0,
+          consentMarketing: false,
+          consentDataSharing: false,
+        },
+      })
+      
+      console.log('✅ R2E account created:', {
+        email: memberEmail,
+        referralCode: newReferralCode,
+      })
+
+      // ✅ v6.0: R2EMallLink 생성 (멀티몰 지원)
+      await prisma.r2EMallLink.create({
+        data: {
+          r2eAccountId: r2eAccount.id,
+          mallId,
+          memberId: member_id,
+        },
+      })
+      console.log('✅ R2EMallLink created:', { r2eAccountId: r2eAccount.id, mallId })
+
+      // TODO: 활성화 이메일 발송
+      console.log('📧 TODO: Send activation email to', memberEmail)
+    } else {
+      console.log('ℹ️ R2E account already exists:', memberEmail)
+      
+      // ✅ v6.0: R2EMallLink 확인 및 생성
+      const existingLink = await prisma.r2EMallLink.findUnique({
+        where: {
+          r2eAccountId_mallId: {
+            r2eAccountId: r2eAccount.id,
+            mallId,
+          },
+        },
+      })
+
+      if (!existingLink) {
+        await prisma.r2EMallLink.create({
+          data: {
+            r2eAccountId: r2eAccount.id,
+            mallId,
+            memberId: member_id,
+          },
+        })
+        console.log('✅ R2EMallLink created for existing account')
+      }
+    }
+
+    // ============================================
+    // 4. ✅ v6.0: 리뷰 저장
+    // ============================================
     const review = await prisma.review.upsert({
       where: {
         cafe24BoardNo_mallId: {
@@ -163,7 +218,7 @@ export async function POST(request: NextRequest) {
       update: {
         content: content || null,
         rating: rating || null,
-        memberEmail, // 🆕 v5.2
+        memberEmail,
         participateR2e: true,
         updatedAt: new Date(),
       },
@@ -171,78 +226,41 @@ export async function POST(request: NextRequest) {
         cafe24BoardNo: board_no,
         productNo: product_no,
         memberId: member_id,
-        memberEmail, // 🆕 v5.2
+        memberEmail,
         mallId,
         content: content || null,
         rating: rating || null,
-        referralCode,
+        referralCode: r2eAccount.referralCode, // R2EAccount 코드 사용
         participateR2e: true,
+        r2eUserId: r2eAccount.id,
       },
     })
 
     console.log('✅ Review saved:', {
       id: review.id,
       referralCode: review.referralCode,
-      memberEmail: review.memberEmail,
+      r2eAccountId: r2eAccount.id,
     })
 
-    // 🆕 v5.2: R2E 계정 생성 및 연동
-    if (memberEmail) {
-      let r2eAccount = await prisma.r2EAccount.findUnique({
-        where: { email: memberEmail },
-      })
-
-      if (!r2eAccount) {
-        // 첫 리뷰 작성자 - 계정 생성
-        r2eAccount = await prisma.r2EAccount.create({
-          data: {
-            email: memberEmail,
-            totalPoints: 0,
-            availablePoints: 0,
-            consentMarketing: false,
-            consentDataSharing: false,
-          },
-        })
-        console.log('✅ R2E account created:', memberEmail)
-
-        // TODO: 계정 활성화 이메일 발송
-        console.log('📧 TODO: Send activation email to', memberEmail)
-      } else {
-        console.log('ℹ️ R2E account already exists:', memberEmail)
-      }
-
-      // 리뷰에 R2E 계정 연결
-      await prisma.review.update({
-        where: { id: review.id },
-        data: { r2eUserId: r2eAccount.id },
-      })
-      
-      console.log('🔗 Review linked to R2E account:', {
-        reviewId: review.id,
-        r2eAccountId: r2eAccount.id,
-      })
-    }
-
-    // 추천 링크 생성 (기존 로직 유지)
+    // ============================================
+    // 5. 추천 링크 생성
+    // ============================================
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://review2earn.vercel.app'
-    const referralLink = `${baseUrl}/product/${product_no}?ref=${referralCode}`
+    const referralLink = `${baseUrl}/product/${product_no}?ref=${r2eAccount.referralCode}`
 
     return NextResponse.json({
       success: true,
       data: {
         reviewId: review.id,
-        referralCode: review.referralCode,
+        referralCode: r2eAccount.referralCode,
         referralLink,
-        r2eAccountLinked: !!memberEmail && !memberEmail.includes('.temp'),
+        r2eAccountId: r2eAccount.id,
         message: 'Review registered successfully for Review2Earn program',
       },
     })
 
   } catch (error) {
-    console.error('❌ Review webhook error:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    })
+    console.error('❌ Review webhook error:', error)
     
     return NextResponse.json(
       {
@@ -259,25 +277,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({ 
     status: 'ok', 
-    version: 'v5.2',
+    version: 'v6.0-member-only',
     timestamp: new Date().toISOString(),
   })
-}
-
-// 추천 코드 생성 함수 (기존 로직 유지)
-function generateReferralCode(
-  memberId: string,
-  productNo: number,
-  boardNo: number
-): string {
-  const timestamp = Date.now()
-  const data = `${memberId}-${productNo}-${boardNo}-${timestamp}`
-  const hash = crypto
-    .createHash('sha256')
-    .update(data)
-    .digest('hex')
-    .substring(0, 12)
-    .toUpperCase()
-  
-  return `R2E${hash}`
 }
