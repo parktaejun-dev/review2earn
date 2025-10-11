@@ -1,7 +1,6 @@
-// src/app/admin/[mallId]/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 
 interface DashboardStats {
@@ -26,11 +25,7 @@ export default function AdminDashboard() {
   
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStats();
-  }, [mallId]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/${mallId}/stats`);
       if (response.ok) {
@@ -42,12 +37,15 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [mallId]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* 헤더 */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Review2Earn 관리자</h1>
           <p className="text-green-600 mt-2">✅ 카페24 연동 성공!</p>
@@ -56,9 +54,7 @@ export default function AdminDashboard() {
           </span>
         </div>
 
-        {/* 통계 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* 상품 수 */}
           <div className="bg-white rounded-lg p-6 shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -73,7 +69,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* 총 리뷰 */}
           <div className="bg-white rounded-lg p-6 shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -88,7 +83,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* R2E 회원 */}
           <div className="bg-white rounded-lg p-6 shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -103,7 +97,6 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* 총 적립금 */}
           <div className="bg-white rounded-lg p-6 shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -119,7 +112,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Webhook 상태 */}
         <div className="bg-white rounded-lg p-6 shadow mb-8">
           <h2 className="text-xl font-bold mb-4">🔔 Webhook 상태</h2>
           <div className="space-y-2">

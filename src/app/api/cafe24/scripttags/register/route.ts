@@ -75,10 +75,10 @@ export async function POST(request: Request) {
       scriptTag: data.scripttag,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ ScriptTag registration error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   } finally {

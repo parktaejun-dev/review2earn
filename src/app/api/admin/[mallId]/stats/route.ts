@@ -10,22 +10,18 @@ export async function GET(
   try {
     const { mallId } = params;
 
-    // 1. 총 리뷰 수
     const totalReviews = await prisma.review.count({
       where: { mallId },
     });
 
-    // 2. 총 주문 수
     const totalOrders = await prisma.transaction.count({
       where: { mallId },
     });
 
-    // 3. R2E 회원 수
     const totalMembers = await prisma.r2EMallLink.count({
       where: { mallId },
     });
 
-    // 4. 총 적립금
     const totalRewardsResult = await prisma.r2ETransaction.aggregate({
       where: {
         mallId,
@@ -39,7 +35,6 @@ export async function GET(
 
     const totalRewards = totalRewardsResult._sum.amount || 0;
 
-    // 5. 활성 상품 수
     const activeProducts = await prisma.review.groupBy({
       by: ['productNo'],
       where: { mallId },
@@ -53,10 +48,10 @@ export async function GET(
       activeProducts: activeProducts.length,
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Stats fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch stats', message: error.message },
+      { error: 'Failed to fetch stats', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   } finally {
