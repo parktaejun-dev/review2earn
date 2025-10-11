@@ -149,8 +149,9 @@ export async function GET(request: NextRequest) {
         console.error(`⚠️ [OAuth Callback] ScriptTag 등록 실패:`, errorText)
         // ScriptTag 실패해도 앱 설치는 계속 진행
       }
-    } catch (scriptError: any) {
-      console.error('⚠️ [OAuth Callback] ScriptTag 등록 에러:', scriptError.message)
+    } catch (scriptError: unknown) {
+      const errorMessage = scriptError instanceof Error ? scriptError.message : 'Unknown error'
+      console.error('⚠️ [OAuth Callback] ScriptTag 등록 에러:', errorMessage)
       // ScriptTag 실패해도 앱 설치는 계속 진행
     }
 

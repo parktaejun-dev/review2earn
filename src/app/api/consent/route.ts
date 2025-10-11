@@ -2,6 +2,8 @@
 // v5.2: Consent 모델 제거됨 - MallSettings.isActive로 대체
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { generateReferralCode } from '@/utils/referralCode'  // ✅ 이미 있는 파일
+
 
 /**
  * POST /api/consent
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
         },
         create: {
           email: memberEmail,
+          referralCode: generateReferralCode(),  // ← 추가!
           totalPoints: 0,
           availablePoints: 0,
           consentMarketing: false,

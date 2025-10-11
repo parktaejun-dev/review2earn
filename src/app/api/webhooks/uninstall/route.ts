@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
           const errorText = await scriptTagResponse.text()
           console.error('⚠️ [Uninstall Webhook] ScriptTag 삭제 실패:', errorText)
         }
-      } catch (error: any) {
-        console.error('⚠️ [Uninstall Webhook] ScriptTag 삭제 에러:', error.message)
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        console.error('⚠️ [Uninstall Webhook] ScriptTag 삭제 에러:', errorMessage)
       }
     } else {
       console.log('ℹ️ [Uninstall Webhook] No ScriptTag to delete')
@@ -73,10 +74,11 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'App uninstalled successfully',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('❌ [Uninstall Webhook] Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: errorMessage },
       { status: 500 }
     )
   }

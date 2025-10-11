@@ -1,3 +1,4 @@
+// prisma/seed.ts
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -80,7 +81,7 @@ async function main() {
   console.log('✅ Bob:', bob.email, bob.referralCode);
 
   // ============================================
-  // 3. 멀티몰 연동
+  // 3. 멀티몰 연동 (v6.0: memberId만 필요)
   // ============================================
   console.log('\n3️⃣ 멀티몰 연동 중...');
 
@@ -95,9 +96,7 @@ async function main() {
     create: {
       r2eAccountId: alice.id,
       mallId: 'fashionstore',
-      mallEmail: 'alice@fashionstore.com',
-      mallMemberId: 'alice123',
-      isVerified: true,
+      memberId: 'alice123',
     },
   });
 
@@ -112,9 +111,7 @@ async function main() {
     create: {
       r2eAccountId: alice.id,
       mallId: 'techshop',
-      mallEmail: 'alice@techshop.com',
-      mallMemberId: 'alice456',
-      isVerified: true,
+      memberId: 'alice456',
     },
   });
 
@@ -129,9 +126,7 @@ async function main() {
     create: {
       r2eAccountId: bob.id,
       mallId: 'fashionstore',
-      mallEmail: 'bob@fashionstore.com',
-      mallMemberId: 'bob789',
-      isVerified: true,
+      memberId: 'bob789',
     },
   });
 

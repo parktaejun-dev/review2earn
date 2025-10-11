@@ -8,9 +8,9 @@ export default function TestWidgetPage() {
     <>
       {/* Widget 스크립트 로드 */}
       <Script 
-  src={`/widget.js?v=${Date.now()}`}  // 캐시 무효화
-  strategy="afterInteractive" 
-/>
+        src={`/widget.js?v=${Date.now()}`}  // 캐시 무효화
+        strategy="afterInteractive" 
+      />
 
       <div style={{
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -76,7 +76,7 @@ export default function TestWidgetPage() {
         }}>
           <h2 style={{ marginBottom: '15px' }}>🧪 테스트 가이드</h2>
           <ul style={{ lineHeight: '2' }}>
-            <li>✅ 페이지 로드 시 "💰 R2E 참여하고 수익 받기" 버튼이 폼 위에 표시됩니다.</li>
+            <li>✅ 페이지 로드 시 &quot;💰 R2E 참여하고 수익 받기&quot; 버튼이 폼 위에 표시됩니다.</li>
             <li>✅ 버튼을 클릭하면 레퍼럴 코드 입력 모달이 나타납니다.</li>
             <li>✅ 코드를 입력하면 localStorage에 저장됩니다.</li>
             <li>✅ URL에 <code>?r2e=R2E-XXXXXXXXXXXX</code>를 추가하면 자동으로 감지됩니다.</li>
