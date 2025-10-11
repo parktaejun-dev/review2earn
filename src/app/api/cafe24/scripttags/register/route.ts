@@ -1,4 +1,3 @@
-// app/api/cafe24/scripttags/register/route.ts
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
@@ -15,7 +14,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ 올바른 모델 이름: MallSettings
     const store = await prisma.mallSettings.findUnique({
       where: { mallId },
     });
@@ -29,26 +27,26 @@ export async function POST(request: Request) {
 
     console.log('✅ Store found:', mallId);
 
-    // ScriptTag 등록
-    const scriptTagUrl = `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`;
-    
-    const response = await fetch(scriptTagUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${store.accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2024-03-01',
-      },
-      body: JSON.stringify({
-        request: {
-          shop_no: 1,
-          src: 'https://review2earn.vercel.app/widget.js',
-          display_location: ['FRONT_PRODUCT_DETAIL'],
-          exclude_path: [],
-          skin_no: [1],
+    const response = await fetch(
+      `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${store.accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Cafe24-Api-Version': '2024-03-01',
         },
-      }),
-    });
+        body: JSON.stringify({
+          request: {
+            shop_no: 1,
+            src: 'https://review2earn.vercel.app/widget.js',
+            display_location: ['FRONT_PRODUCT_DETAIL'],
+            exclude_path: [],
+            skin_no: [1],
+          },
+        }),
+      }
+    );
 
     const data = await response.json();
 
@@ -62,7 +60,6 @@ export async function POST(request: Request) {
 
     console.log('✅ ScriptTag registered:', data);
 
-    // ✅ scriptTagNo 저장
     if (data.scripttag && data.scripttag.script_no) {
       await prisma.mallSettings.update({
         where: { mallId },
