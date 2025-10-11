@@ -1,7 +1,15 @@
 // src/app/api/webhooks/order/route.ts
-// v5.2 완전 수정판 - 모든 필수 필드 포함
+// v5.2 완전 수정판 - TypeScript 에러 해결
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma' // ✅ 경로 수정
+import { prisma } from '@/lib/prisma'
+
+// ✅ 타입 정의 추가
+interface R2ETransactionResult {
+  id: string
+  amount: number
+  type: string
+  status: string
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -95,7 +103,7 @@ export async function POST(request: NextRequest) {
     })
 
     // 3. 보상 계산 및 거래 생성
-    const r2eTransactions: any[] = []
+    const r2eTransactions: R2ETransactionResult[] = [] // ✅ 타입 지정
     let totalReward = 0
 
     // v5.1 수수료율
@@ -136,11 +144,17 @@ export async function POST(request: NextRequest) {
           relatedOrderId: order_id,
           relatedReviewId: review.id,
           referralCode,
-          expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // ✅ 3개월 후
+          expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
         },
       })
 
-      r2eTransactions.push(transaction)
+      // ✅ 타입 안전하게 push
+      r2eTransactions.push({
+        id: transaction.id,
+        amount: transaction.amount,
+        type: transaction.type,
+        status: transaction.status,
+      })
       totalReward += netReward
     }
 
