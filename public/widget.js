@@ -1,5 +1,5 @@
 // public/widget.js
-// Review2Earn v6.0 Widget - 카페24 게시판 구조 대응
+// Review2Earn v6.0 Widget - 카페24 리뷰 테이블 대응
 
 (function() {
   'use strict';
@@ -17,94 +17,75 @@
   };
 
   // ============================================
-  // 페이지 감지 (상품 상세 or 게시판)
+  // 페이지 감지
   // ============================================
   function isProductPage() {
-    return window.location.pathname.includes('/product/') ||
-           window.location.pathname.includes('/board/product');
+    return window.location.pathname.includes('/product/');
   }
 
   // ============================================
-  // 리뷰 컨테이너 찾기 (여러 패턴 지원)
+  // 리뷰 행 찾기 (모든 테이블 검색)
   // ============================================
-  function findReviewContainers() {
-    // 패턴 1: 게시판 테이블 행
-    const boardRows = document.querySelectorAll('table.board_list tbody tr, table.boardList tbody tr, .xans-board-list tbody tr');
-    
-    // 패턴 2: 상품 리뷰 영역
-    const reviewDivs = document.querySelectorAll('.review, .board-content, .prdReview, .reviewArea, .product-review');
-    
-    // 패턴 3: 리뷰 상세 페이지
-    const detailContent = document.querySelectorAll('.board-view, .boardView, .detail-content');
+  function findReviewRows() {
+    const allTables = document.querySelectorAll('table');
+    const reviewRows = [];
 
-    const containers = [];
-    
-    // 게시판 행 추가
-    boardRows.forEach(row => {
-      if (row.textContent && row.textContent.trim()) {
-        containers.push(row);
-      }
-    });
-    
-    // 리뷰 div 추가
-    reviewDivs.forEach(div => {
-      if (div.textContent && div.textContent.trim()) {
-        containers.push(div);
-      }
-    });
-    
-    // 상세 페이지 추가
-    detailContent.forEach(div => {
-      if (div.textContent && div.textContent.trim()) {
-        containers.push(div);
-      }
+    allTables.forEach((table) => {
+      const rows = table.querySelectorAll('tr');
+      
+      rows.forEach((row) => {
+        const text = row.textContent || '';
+        
+        // 리뷰 행 감지 (번호, 제목, 작성자 패턴)
+        if (text.match(/\d+.*좋아요|리뷰|테스트.*\d{4}-\d{2}-\d{2}/)) {
+          reviewRows.push(row);
+        }
+      });
     });
 
-    return containers;
+    return reviewRows;
   }
 
   // ============================================
-  // 리뷰에서 R2E 코드 감지 및 버튼 생성
+  // 리뷰 처리
   // ============================================
   function processReviews() {
-    const containers = findReviewContainers();
+    const reviewRows = findReviewRows();
     
-    if (containers.length === 0) {
-      console.log('⚠️ R2E: No review containers found');
-      console.log('💡 R2E: Try looking for elements manually:');
-      console.log('   document.querySelectorAll("table tbody tr")');
+    if (reviewRows.length === 0) {
+      console.log('⚠️ R2E: No review rows found');
       return;
     }
 
-    console.log(`✅ R2E: Found ${containers.length} review containers`);
+    console.log(`✅ R2E: Found ${reviewRows.length} review rows`);
 
-    containers.forEach((container, index) => {
-      const textContent = container.textContent || '';
+    reviewRows.forEach((row, index) => {
+      const textContent = row.textContent || '';
       const match = textContent.match(CONFIG.REFERRAL_CODE_PATTERN);
 
       if (match && match[0]) {
         const referralCode = match[0].toUpperCase();
-        console.log(`✅ R2E: Code detected in review ${index}: ${referralCode}`);
+        console.log(`✅ R2E: Code detected in row ${index}: ${referralCode}`);
 
         // 이미 버튼이 있는지 확인
-        if (container.querySelector('.r2e-discount-button')) {
+        if (row.querySelector('.r2e-discount-button')) {
           return;
         }
 
         // 원본 코드 숨김 처리
-        hideReferralCode(container, referralCode);
+        hideReferralCode(row, referralCode);
 
-        // 버튼 생성 및 삽입
+        // 버튼 생성
         const button = createDiscountButton(referralCode);
         
-        // 테이블 행이면 td에 삽입
-        if (container.tagName === 'TR') {
-          const lastTd = container.querySelector('td:last-child');
-          if (lastTd) {
-            lastTd.appendChild(button);
-          }
-        } else {
-          container.appendChild(button);
+        // 마지막 td에 버튼 삽입
+        const lastTd = row.querySelector('td:last-child');
+        if (lastTd) {
+          const buttonWrapper = document.createElement('div');
+          buttonWrapper.style.cssText = 'margin-top: 8px;';
+          buttonWrapper.appendChild(button);
+          lastTd.appendChild(buttonWrapper);
+          console.log(`✅ R2E: Button inserted in row ${index}`);
         }
       }
     });
@@ -114,7 +95,6 @@
   // 레퍼럴 코드 숨김 처리
   // ============================================
   function hideReferralCode(container, code) {
-    // 텍스트 노드에서 코드 제거
     const walker = document.createTreeWalker(
       container,
       NodeFilter.SHOW_TEXT,
@@ -144,17 +124,16 @@
     const button = document.createElement('button');
     button.className = 'r2e-discount-button';
     button.type = 'button';
-    button.textContent = '🎁 1% 할인';
+    button.textContent = '🎁 1% 할인받기';
     button.style.cssText = `
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 6px 12px;
+      padding: 8px 16px;
       border: none;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      margin: 4px;
       box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
       transition: all 0.3s ease;
       display: inline-block;
