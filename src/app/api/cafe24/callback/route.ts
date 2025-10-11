@@ -41,7 +41,9 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔐 [OAuth Callback] Processing for ${mallId} with code: ${code.substring(0, 10)}...`)
 
+    // ============================================
     // 1. Authorization Code를 Access Token으로 교환
+    // ============================================
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`
     
     // Basic Auth 인코딩
@@ -71,7 +73,9 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json()
     console.log(`✅ [OAuth Callback] Token received for ${mallId}`)
 
+    // ============================================
     // 2. DB에 토큰 저장
+    // ============================================
     await prisma.mallSettings.upsert({
       where: { mallId },
       create: {
@@ -102,7 +106,57 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ [OAuth Callback] Tokens saved to DB for ${mallId}`)
 
-    // 🆕 3. 쿠키 설정 후 리다이렉트 (무한 루프 방지)
+    // ============================================
+    // 3. ✅ v6.0: ScriptTag 자동 등록
+    // ============================================
+    const widgetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://review2earn.vercel.app'}/widget.js`
+
+    try {
+      const scriptTagResponse = await fetch(
+        `https://${mallId}.cafe24api.com/api/v2/admin/scripttags`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokens.access_token}`,
+            'X-Cafe24-Api-Version': '2024-03-01',
+          },
+          body: JSON.stringify({
+            shop_no: 1,
+            request: {
+              src: widgetUrl,
+              display_location: ['BOARD_WRITE'], // 리뷰 작성 페이지
+              exclude_path: [],
+              skin_no: [1],
+            },
+          }),
+        }
+      )
+
+      if (scriptTagResponse.ok) {
+        const scriptTagData = await scriptTagResponse.json()
+        const scriptTagNo = scriptTagData.scripttag?.script_no
+
+        if (scriptTagNo) {
+          await prisma.mallSettings.update({
+            where: { mallId },
+            data: { scriptTagNo },
+          })
+          console.log(`✅ [OAuth Callback] ScriptTag 등록 완료: ${scriptTagNo}`)
+        }
+      } else {
+        const errorText = await scriptTagResponse.text()
+        console.error(`⚠️ [OAuth Callback] ScriptTag 등록 실패:`, errorText)
+        // ScriptTag 실패해도 앱 설치는 계속 진행
+      }
+    } catch (scriptError: any) {
+      console.error('⚠️ [OAuth Callback] ScriptTag 등록 에러:', scriptError.message)
+      // ScriptTag 실패해도 앱 설치는 계속 진행
+    }
+
+    // ============================================
+    // 4. 쿠키 설정 후 리다이렉트 (무한 루프 방지)
+    // ============================================
     const redirectUrl = new URL(
       process.env.NEXT_PUBLIC_APP_URL || 'https://review2earn.vercel.app'
     )
