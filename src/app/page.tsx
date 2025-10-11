@@ -2,6 +2,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link';
+
 
 export default function Home() {
   const [mallId, setMallId] = useState('')
@@ -157,12 +159,12 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <a
+              <Link
                 href="/admin/dashboard"
                 className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-lg text-center transition transform hover:scale-105 shadow-lg"
               >
                 ⚙️ 관리자 페이지
-              </a>
+              </Link>
               <button
                 onClick={handleReconnect}
                 className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-semibold py-4 px-6 rounded-lg transition transform hover:scale-105 shadow-lg"
