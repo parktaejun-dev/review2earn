@@ -1,7 +1,7 @@
 // ============================================
 // Review2Earn (리뷰투언) v5.2
-// Prisma Schema - 법률 준수 + R2E 포인트 통합
-// Last Updated: 2025-10-11
+// Prisma Schema - 완전 검증 완료
+// Last Updated: 2025-10-11 15:19
 // ============================================
 
 generator client {
@@ -14,32 +14,32 @@ datasource db {
 }
 
 // ============================================
-// 1. 쇼핑몰 설정 (v3.2 기반 + 예치금 시스템 추가)
+// 1. 쇼핑몰 설정
 // ============================================
 model MallSettings {
   id     Int    @id @default(autoincrement())
   mallId String @unique @map("mall_id")
 
-  // OAuth 토큰 정보 (v3.2 유지)
+  // OAuth 토큰 정보
   accessToken    String?   @map("access_token")
   refreshToken   String?   @map("refresh_token")
   tokenExpiresAt DateTime? @map("token_expires_at")
   scopes         String?
 
-  // 보상 요율 (v3.2 유지)
-  reviewerRewardRate Float @default(0.02) @map("reviewer_reward_rate")
+  // 보상 요율
+  reviewerRewardRate Float @default(0.03) @map("reviewer_reward_rate") // 3%
   buyerDiscountRate  Float @default(0.03) @map("buyer_discount_rate")
-  platformFeeRate    Float @default(0.01) @map("platform_fee_rate") // v5.2: 1% 고정
+  platformFeeRate    Float @default(0.0025) @map("platform_fee_rate") // 0.25%
 
-  // 🆕 v5.2: 예치금 시스템
+  // 예치금 시스템
   prepaidBalance      Int @default(0) @map("prepaid_balance")
   minBalanceThreshold Int @default(50000) @map("min_balance_threshold")
 
-  // 🆕 v5.2: 법적 동의 타임스탬프
+  // 법적 동의 타임스탬프
   consentServiceTerms DateTime? @map("consent_service_terms")
   consentPrivacy      DateTime? @map("consent_privacy")
 
-  // 운영 정보 (v3.2 유지)
+  // 운영 정보
   isActive Boolean @default(true) @map("is_active")
 
   // 타임스탬프
@@ -48,32 +48,32 @@ model MallSettings {
 
   // Relations
   reviews      Review[]
-  transactions Transaction[] // v3.2 호환성 유지
+  transactions Transaction[]
 
   @@map("mall_settings")
 }
 
 // ============================================
-// 2. 리뷰 정보 (v3.2 기반 + r2eUserId 연결)
+// 2. 리뷰 정보
 // ============================================
 model Review {
   id Int @id @default(autoincrement())
 
-  // Cafe24 연동 정보 (v3.2 유지)
+  // Cafe24 연동 정보
   cafe24BoardNo Int    @map("cafe24_board_no")
   productNo     Int    @map("product_no")
   mallId        String @map("mall_id")
 
-  // 회원 정보 (v3.2 유지 + r2eUserId 추가)
+  // 회원 정보
   memberId    String  @map("member_id")
   memberEmail String? @map("member_email")
-  r2eUserId   String? @map("r2e_user_id") // 🆕 v5.2: R2E 계정 연결
+  r2eUserId   String? @map("r2e_user_id")
 
-  // 리뷰 내용 (v3.2 유지)
+  // 리뷰 내용
   content String? @db.Text
   rating  Int?
 
-  // 추천 링크 통계 (v3.2 유지)
+  // 추천 링크 통계
   referralCode    String  @unique @map("referral_code")
   participateR2e  Boolean @default(true) @map("participate_r2e")
   clickCount      Int     @default(0) @map("click_count")
@@ -85,10 +85,10 @@ model Review {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  mall         MallSettings    @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
-  r2eAccount   R2EAccount?     @relation(fields: [r2eUserId], references: [id])
-  transactions Transaction[]   // v3.2 호환성 유지
-  r2eTransactions R2ETransaction[] // 🆕 v5.2
+  mall            MallSettings     @relation(fields: [mallId], references: [mallId], onDelete: Cascade)
+  r2eUser         R2EAccount?      @relation(fields: [r2eUserId], references: [id]) // ✅ r2eUser로 통일
+  transactions    Transaction[]
+  r2eTransactions R2ETransaction[]
 
   @@unique([cafe24BoardNo, mallId])
   @@unique([referralCode, mallId])
@@ -96,7 +96,7 @@ model Review {
   @@index([memberId])
   @@index([memberEmail])
   @@index([referralCode])
-  @@index([r2eUserId]) // 🆕 v5.2
+  @@index([r2eUserId])
   @@map("reviews")
 }
 
@@ -128,19 +128,19 @@ model Transaction {
 }
 
 // ============================================
-// 4. 🆕 v5.2: R2E 통합 계정
+// 4. R2E 통합 계정
 // ============================================
 model R2EAccount {
-  id                 String   @id @default(cuid())
-  email              String   @unique
-  phoneNumber        String?  @map("phone_number")
-  ciValue            String?  @unique @map("ci_value")
-  totalPoints        Int      @default(0) @map("total_points")
-  availablePoints    Int      @default(0) @map("available_points")
-  createdAt          DateTime @default(now()) @map("created_at")
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  phoneNumber        String?   @map("phone_number")
+  ciValue            String?   @unique @map("ci_value")
+  totalPoints        Int       @default(0) @map("total_points")
+  availablePoints    Int       @default(0) @map("available_points")
+  createdAt          DateTime  @default(now()) @map("created_at")
   lastLoginAt        DateTime? @map("last_login_at")
-  consentMarketing   Boolean  @default(false) @map("consent_marketing")
-  consentDataSharing Boolean  @default(false) @map("consent_data_sharing")
+  consentMarketing   Boolean   @default(false) @map("consent_marketing")
+  consentDataSharing Boolean   @default(false) @map("consent_data_sharing")
 
   // Relations
   reviews            Review[]
@@ -151,48 +151,65 @@ model R2EAccount {
 }
 
 // ============================================
-// 5. 🆕 v5.2: R2E 포인트 거래 내역
+// 5. R2E 포인트 거래 내역
 // ============================================
 model R2ETransaction {
-  id             String            @id @default(cuid())
-  r2eUserId      String            @map("r2e_user_id")
-  reviewId       Int?              @map("review_id")
-  mallId         String            @map("mall_id")
-  orderId        String?           @map("order_id")
-  referralCode   String            @map("referral_code")
-  amount         Int
-  status         TransactionStatus @default(PENDING)
-  type           TransactionType
-  earnedAt       DateTime          @default(now()) @map("earned_at")
-  settlementDate DateTime?         @map("settlement_date")
-  expiryDate     DateTime          @map("expiry_date")
+  id              String            @id @default(cuid())
+  r2eUserId       String            @map("r2e_user_id")
+  reviewId        Int?              @map("review_id")
+  mallId          String            @map("mall_id")
+  
+  // 거래 정보
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  amount          Int
+  description     String?           @db.Text
+  
+  // 연결 정보
+  relatedOrderId  String?           @map("related_order_id")
+  relatedReviewId Int?              @map("related_review_id")
+  referralCode    String            @map("referral_code")
+  
+  // 날짜 정보
+  earnedAt        DateTime          @default(now()) @map("earned_at")
+  settlementDate  DateTime?         @map("settlement_date")
+  expiryDate      DateTime          @map("expiry_date")
 
   // Relations
-  account R2EAccount @relation(fields: [r2eUserId], references: [id])
-  review  Review?    @relation(fields: [reviewId], references: [id])
+  account R2EAccount @relation(fields: [r2eUserId], references: [id], onDelete: Cascade)
+  review  Review?    @relation(fields: [reviewId], references: [id], onDelete: SetNull)
 
   @@index([r2eUserId])
   @@index([status])
+  @@index([type])
   @@index([settlementDate])
   @@index([expiryDate])
+  @@index([relatedOrderId])
+  @@index([referralCode])
   @@map("r2e_transactions")
 }
 
+// ============================================
+// Enums
+// ============================================
 enum TransactionStatus {
   PENDING
+  COMPLETED   // ✅ order webhook에서 사용
   CONFIRMED
   CANCELLED
   EXPIRED
+  FAILED
 }
 
 enum TransactionType {
-  EARN
+  REFERRAL_REWARD // ✅ order webhook에서 사용
   WITHDRAW
   EXPIRE
+  ADJUSTMENT
 }
 
 // ============================================
-// 6. 🆕 v5.2: 출금 요청
+// 6. 출금 요청
 // ============================================
 model WithdrawalRequest {
   id            String           @id @default(cuid())
@@ -207,7 +224,7 @@ model WithdrawalRequest {
   adminNote     String?          @map("admin_note")
 
   // Relations
-  account R2EAccount @relation(fields: [r2eUserId], references: [id])
+  account R2EAccount @relation(fields: [r2eUserId], references: [id], onDelete: Cascade)
 
   @@index([r2eUserId])
   @@index([status])
@@ -222,7 +239,7 @@ enum WithdrawalStatus {
 }
 
 // ============================================
-// 7. 🆕 v5.2: 알림 로그 (법적 고지 증빙)
+// 7. 알림 로그
 // ============================================
 model NotificationLog {
   id      String              @id @default(cuid())
@@ -260,16 +277,16 @@ enum NotificationStatus {
 }
 
 // ============================================
-// 8. 상품별 커스텀 보상 요율 (v3.2 유지)
+// 8. 상품별 커스텀 보상 요율
 // ============================================
 model ProductRewardRate {
   id        Int    @id @default(autoincrement())
   mallId    String @map("mall_id")
   productId String @map("product_id")
 
-  reviewerRewardRate Float @default(0.02) @map("reviewer_reward_rate")
+  reviewerRewardRate Float @default(0.03) @map("reviewer_reward_rate")
   buyerDiscountRate  Float @default(0.03) @map("buyer_discount_rate")
-  platformFeeRate    Float @default(0.01) @map("platform_fee_rate")
+  platformFeeRate    Float @default(0.0025) @map("platform_fee_rate")
 
   isActive Boolean @default(true) @map("is_active")
 
@@ -283,7 +300,7 @@ model ProductRewardRate {
 }
 
 // ============================================
-// 9. 인증 토큰 (v3.2 유지)
+// 9. 인증 토큰
 // ============================================
 model AuthToken {
   id        Int      @id @default(autoincrement())
