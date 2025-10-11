@@ -1,4 +1,4 @@
-// src/app/admin/dashboard/page.tsx
+// src/app/admin/dashboard/page.tsx (간소화 버전)
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,15 +8,12 @@ interface ApiTestResult {
   message: string
   mall_id?: string
   products_count?: number
-  sample_data?: Record<string, unknown>
 }
 
 export default function Dashboard() {
   const [mallId, setMallId] = useState<string>('')
   const [isConnected, setIsConnected] = useState<boolean>(false)
   const [apiTestResult, setApiTestResult] = useState<ApiTestResult | null>(null)
-  const [scriptStatus, setScriptStatus] = useState<'checking' | 'installed' | 'not_installed' | 'installing' | 'removing'>('checking')
-  const [scriptMessage, setScriptMessage] = useState('')
 
   useEffect(() => {
     const savedMallId = localStorage.getItem('user_mall_id')
@@ -25,11 +22,7 @@ export default function Dashboard() {
     if (savedMallId && isAlreadyConnected === 'true') {
       setMallId(savedMallId)
       setIsConnected(true)
-      
-      // ✅ 쿠키에도 mallId 저장 (API에서 사용)
       document.cookie = `cafe24_mall_id=${savedMallId}; path=/; max-age=86400`
-      
-      checkScriptStatus()
     } else {
       const cookieMallId = document.cookie
         .split('; ')
@@ -41,38 +34,14 @@ export default function Dashboard() {
         setIsConnected(true)
         localStorage.setItem('user_mall_id', cookieMallId)
         localStorage.setItem('is_connected', 'true')
-        checkScriptStatus()
       }
     }
   }, [])
 
-  const checkScriptStatus = async () => {
-    try {
-      const response = await fetch('/api/scripttags/status', {
-        method: 'GET'
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        setScriptStatus(result.installed ? 'installed' : 'not_installed')
-        setScriptMessage(result.message)
-      }
-    } catch (error) {
-      console.error('스크립트 상태 확인 오류:', error)
-      setScriptStatus('not_installed')
-      setScriptMessage('스크립트 상태를 확인할 수 없습니다.')
-    }
-  }
-
   const handleApiTest = async () => {
     try {
       setApiTestResult(null)
-      
-      const response = await fetch(`/api/test-connection?mall_id=${mallId}`, {
-        method: 'GET'
-      })
-      
+      const response = await fetch(`/api/test-connection?mall_id=${mallId}`)
       const result = await response.json()
       setApiTestResult(result)
     } catch (error) {
@@ -85,74 +54,18 @@ export default function Dashboard() {
   }
 
   const handleReconnect = () => {
-    localStorage.removeItem('user_mall_id')
-    localStorage.removeItem('is_connected')
-    
-    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'cafe24_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'oauth_completed=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    
+    localStorage.clear()
+    document.cookie.split(";").forEach(c => {
+      document.cookie = c.trim().split("=")[0] + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    })
     window.location.href = '/'
   }
 
-  const handleInstallScript = async () => {
-    setScriptStatus('installing')
-    setScriptMessage('스크립트를 설치하는 중입니다...')
-
-    try {
-      const response = await fetch('/api/scripttags/install', {
-        method: 'POST'
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        setScriptStatus('installed')
-        setScriptMessage(result.message)
-      } else {
-        throw new Error(result.message)
-      }
-    } catch (error) {
-      console.error('스크립트 설치 오류:', error)
-      setScriptMessage('스크립트 설치 중 오류가 발생했습니다')
-      setScriptStatus('not_installed')
-    }
-  }
-
-  const handleRemoveScript = async () => {
-    if (!confirm('리뷰투언 스크립트를 제거하시겠습니까?')) return
-
-    setScriptStatus('removing')
-    setScriptMessage('스크립트를 제거하는 중입니다...')
-
-    try {
-      const response = await fetch('/api/scripttags/uninstall', {
-        method: 'DELETE'
-      })
-      
-      const result = await response.json()
-      
-      if (result.success) {
-        setScriptStatus('not_installed')
-        setScriptMessage(result.message)
-      } else {
-        throw new Error(result.message)
-      }
-    } catch (error) {
-      console.error('스크립트 제거 오류:', error)
-      setScriptMessage('스크립트 제거 중 오류가 발생했습니다')
-    }
-  }
-
   const handleLogout = () => {
-    localStorage.removeItem('user_mall_id')
-    localStorage.removeItem('is_connected')
-    
-    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'oauth_completed=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    
+    localStorage.clear()
+    document.cookie.split(";").forEach(c => {
+      document.cookie = c.trim().split("=")[0] + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    })
     window.location.href = '/'
   }
 
@@ -280,7 +193,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">총 적립금</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">총 R2E 적립금</dt>
                     <dd className="text-lg font-medium text-gray-900">0원</dd>
                   </dl>
                 </div>
@@ -289,63 +202,20 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 스크립트 관리 섹션 */}
+        {/* Webhook 상태 (TODO) */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-bold mb-4 text-gray-800">
-            🔧 리뷰투언 스크립트 관리
+            🔔 Webhook 상태
           </h2>
-          
-          <div className="mb-4">
-            <p className="text-gray-600 mb-2">
-              쇼핑몰 리뷰 작성란에 &quot;리뷰투언으로 수익받기&quot; 버튼을 추가합니다.
-            </p>
-            
-            {scriptMessage && (
-              <div className={`p-3 rounded mb-4 ${
-                scriptStatus === 'installed' ? 'bg-green-100 text-green-800' :
-                scriptStatus === 'not_installed' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-blue-100 text-blue-800'
-              }`}>
-                {scriptMessage}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-4">
-            {scriptStatus === 'not_installed' && (
-              <button
-                onClick={handleInstallScript}
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                📦 스크립트 설치
-              </button>
-            )}
-
-            {scriptStatus === 'installed' && (
-              <>
-                <button
-                  className="bg-green-500 text-white px-6 py-2 rounded-lg font-medium cursor-default"
-                  disabled
-                >
-                  ✅ 설치 완료
-                </button>
-                <button
-                  onClick={handleRemoveScript}
-                  className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                >
-                  🗑️ 스크립트 제거
-                </button>
-              </>
-            )}
-
-            {(scriptStatus === 'installing' || scriptStatus === 'removing') && (
-              <button
-                className="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium cursor-default"
-                disabled
-              >
-                ⏳ 처리 중...
-              </button>
-            )}
+          <div className="space-y-2">
+            <div className="flex items-center">
+              <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+              <span className="text-gray-700">product.review.register - 활성</span>
+            </div>
+            <div className="flex items-center">
+              <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+              <span className="text-gray-700">order.confirm - 활성</span>
+            </div>
           </div>
         </div>
 
