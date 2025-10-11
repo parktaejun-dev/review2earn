@@ -1,53 +1,49 @@
-import { CAFE24_CONFIG } from "@/lib/cafe24-config";
-// 카페24 API 연결 테스트
+import { CAFE24_CONFIG } from '@/lib/cafe24-config';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
     try {
-        const accessToken = request.cookies.get('cafe24_access_token')?.value;
-        const mallId = request.cookies.get('cafe24_mall_id')?.value;
-        
-        if (!accessToken || !mallId) {
-            return NextResponse.json(
-                { error: 'Not authenticated. Please login with Cafe24 first.' },
-                { status: 401 }
-            );
+        const body = await request.json();
+        const { mallId, accessToken } = body;
+
+        if (!mallId || !accessToken) {
+            return NextResponse.json({
+                success: false,
+                error: 'mallId and accessToken are required'
+            }, { status: 400 });
         }
-        
-        // 카페24 API 테스트 - 상품 목록 조회
-        const response = await fetch(`https://${mallId}.cafe24api.com/api/v2/admin/products`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-                import { CAFE24_CONFIG } from '@/lib/cafe24-config';
-'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION
+
+        const response = await fetch(
+            `https://${mallId}.cafe24api.com/api/v2/admin/products?limit=1`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                    'X-Cafe24-Api-Version': CAFE24_CONFIG.API_VERSION
+                }
             }
-        });
-        
-        const data = await response.json();
-        
+        );
+
         if (!response.ok) {
-            return NextResponse.json(
-                { error: 'Cafe24 API Error', details: data },
-                { status: response.status }
-            );
+            return NextResponse.json({
+                success: false,
+                error: 'Cafe24 API request failed',
+                status: response.status
+            }, { status: response.status });
         }
-        
+
+        const data = await response.json();
+
         return NextResponse.json({
             success: true,
-            message: 'Cafe24 API connection successful!',
-            mall_id: mallId,
-            products_count: data.products?.length || 0,
-            sample_data: data
+            data: data
         });
-        
+
     } catch (error) {
-        console.error('API test error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json(
-            { error: 'API test failed', details: errorMessage },
-            { status: 500 }
-        );
+        console.error('Test API Error:', error);
+        return NextResponse.json({
+            success: false,
+            error: 'Internal server error'
+        }, { status: 500 });
     }
 }

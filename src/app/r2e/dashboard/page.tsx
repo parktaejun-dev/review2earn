@@ -122,7 +122,7 @@ export default function R2EDashboard() {
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{tx.description}</p>
                           <p className="text-sm text-gray-500">
-                            {new Date(tx.earnedAt).formatDate(, {
+                            {formatDate(new Date(tx.earnedAt), {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
