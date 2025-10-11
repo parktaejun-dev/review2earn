@@ -1,22 +1,46 @@
 // src/app/api/webhooks/review/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import crypto from 'crypto'
+
+// Cafe24 Webhook 타입 정의
+interface ReviewWebhookPayload {
+  event_no: number
+  resource: {
+    mall_id: string
+  }
+  event: string
+  data: {
+    board_no: number
+    product_no: number
+    member_id: string
+    writer: string
+    content?: string
+    rating?: number
+    created_date: string
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    console.log('📥 Review Webhook received:', JSON.stringify(body, null, 2));
+    const body: ReviewWebhookPayload = await request.json()
+    console.log('📥 Review Webhook received:', JSON.stringify(body, null, 2))
 
-    // Cafe24 웹훅 데이터 추출
-    const resource = body.resource;
-    const mallId = body.mall_id || 'dhdshop'; // 기본값 (나중에 제거 필요)
-
-    if (!resource) {
+    // Webhook 데이터 검증
+    if (body.event !== 'board.product.created') {
       return NextResponse.json(
-        { success: false, error: 'Missing resource data' },
+        { success: false, error: 'Invalid event type' },
         { status: 400 }
-      );
+      )
+    }
+
+    // mallId 추출 (v5.2: resource에서 가져옴)
+    const mallId = body.resource?.mall_id
+    if (!mallId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing mall_id' },
+        { status: 400 }
+      )
     }
 
     // 리뷰 데이터 추출
@@ -26,46 +50,76 @@ export async function POST(request: NextRequest) {
       member_id,
       content,
       rating,
-    } = resource;
+    } = body.data
 
     console.log('📝 Review data:', {
       board_no,
       product_no,
       member_id,
       mallId,
-    });
+    })
 
     // 필수 필드 검증
     if (!board_no || !product_no || !member_id) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
-      );
+      )
     }
 
-    // 1. 동의 여부 확인
-    const consent = await prisma.consent.findUnique({
-      where: {
-        memberId_mallId: {
-          memberId: member_id,
-          mallId,
-        },
-      },
-    });
+    // 🆕 v5.2: MallSettings 확인 (Consent 제거됨)
+    const mallSettings = await prisma.mallSettings.findUnique({
+      where: { mallId },
+    })
 
-    if (!consent || !consent.consented) {
-      console.log('❌ User has not consented to R2E program');
+    if (!mallSettings) {
+      console.error('❌ Mall not found:', mallId)
+      return NextResponse.json(
+        { success: false, error: 'Mall not registered' },
+        { status: 404 }
+      )
+    }
+
+    if (!mallSettings.isActive) {
+      console.log('⚠️ Mall is inactive:', mallId)
       return NextResponse.json({
         success: false,
-        reason: 'not_consented',
-        message: 'User has not consented to participate in Review2Earn',
-      });
+        reason: 'mall_inactive',
+        message: 'Review2Earn is currently disabled for this mall',
+      })
     }
 
-    // 2. 추천 코드 생성
-    const referralCode = generateReferralCode(member_id, product_no, board_no);
+    // 🆕 v5.2: Cafe24 API로 고객 이메일 조회
+    let memberEmail: string | null = null
+    
+    if (mallSettings.accessToken) {
+      try {
+        const response = await fetch(
+          `https://${mallId}.cafe24api.com/api/v2/admin/customers/${member_id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${mallSettings.accessToken}`,
+              'Content-Type': 'application/json',
+              'X-Cafe24-Api-Version': '2024-03-01',
+            },
+          }
+        )
 
-    // 3. 리뷰 저장 (upsert)
+        if (response.ok) {
+          const data = await response.json()
+          memberEmail = data.customer?.email || null
+          console.log('✅ Customer email retrieved:', memberEmail)
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to get customer email:', error)
+        // 이메일 조회 실패해도 리뷰는 등록
+      }
+    }
+
+    // 추천 코드 생성 (기존 로직 유지)
+    const referralCode = generateReferralCode(member_id, product_no, board_no)
+
+    // 리뷰 저장 (upsert 유지)
     const review = await prisma.review.upsert({
       where: {
         cafe24BoardNo_mallId: {
@@ -76,6 +130,7 @@ export async function POST(request: NextRequest) {
       update: {
         content: content || null,
         rating: rating || null,
+        memberEmail, // 🆕 v5.2
         participateR2e: true,
         updatedAt: new Date(),
       },
@@ -83,22 +138,54 @@ export async function POST(request: NextRequest) {
         cafe24BoardNo: board_no,
         productNo: product_no,
         memberId: member_id,
+        memberEmail, // 🆕 v5.2
         mallId,
         content: content || null,
         rating: rating || null,
         referralCode,
         participateR2e: true,
       },
-    });
+    })
 
     console.log('✅ Review saved:', {
       id: review.id,
       referralCode: review.referralCode,
-    });
+      memberEmail: review.memberEmail,
+    })
 
-    // 4. 추천 링크 생성
-    const baseUrl = process.env.NEXTAUTH_URL || 'https://review2earn.vercel.app';
-    const referralLink = `${baseUrl}/product/${product_no}?ref=${referralCode}`;
+    // 🆕 v5.2: R2E 계정 생성 및 연동
+    if (memberEmail) {
+      let r2eAccount = await prisma.r2EAccount.findUnique({
+        where: { email: memberEmail },
+      })
+
+      if (!r2eAccount) {
+        // 첫 리뷰 작성자 - 계정 생성
+        r2eAccount = await prisma.r2EAccount.create({
+          data: {
+            email: memberEmail,
+            totalPoints: 0,
+            availablePoints: 0,
+            consentMarketing: false,
+            consentDataSharing: false,
+          },
+        })
+        console.log('✅ R2E account created:', memberEmail)
+
+        // TODO: 계정 활성화 이메일 발송
+        console.log('📧 TODO: Send activation email to', memberEmail)
+      }
+
+      // 리뷰에 R2E 계정 연결
+      await prisma.review.update({
+        where: { id: review.id },
+        data: { r2eUserId: r2eAccount.id },
+      })
+    }
+
+    // 추천 링크 생성 (기존 로직 유지)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://review2earn.vercel.app'
+    const referralLink = `${baseUrl}/product/${product_no}?ref=${referralCode}`
 
     return NextResponse.json({
       success: true,
@@ -106,12 +193,13 @@ export async function POST(request: NextRequest) {
         reviewId: review.id,
         referralCode: review.referralCode,
         referralLink,
+        r2eAccountLinked: !!memberEmail,
         message: 'Review registered successfully for Review2Earn program',
       },
-    });
+    })
 
   } catch (error) {
-    console.error('❌ Review webhook error:', error);
+    console.error('❌ Review webhook error:', error)
     return NextResponse.json(
       {
         success: false,
@@ -119,24 +207,29 @@ export async function POST(request: NextRequest) {
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
-    );
+    )
   }
 }
 
-// 추천 코드 생성 함수
+// Webhook 검증용 GET 엔드포인트
+export async function GET() {
+  return NextResponse.json({ status: 'ok', version: 'v5.2' })
+}
+
+// 추천 코드 생성 함수 (기존 로직 유지)
 function generateReferralCode(
   memberId: string,
   productNo: number,
   boardNo: number
 ): string {
-  const timestamp = Date.now();
-  const data = `${memberId}-${productNo}-${boardNo}-${timestamp}`;
+  const timestamp = Date.now()
+  const data = `${memberId}-${productNo}-${boardNo}-${timestamp}`
   const hash = crypto
     .createHash('sha256')
     .update(data)
     .digest('hex')
     .substring(0, 12)
-    .toUpperCase();
+    .toUpperCase()
   
-  return `R2E${hash}`;
+  return `R2E${hash}`
 }
