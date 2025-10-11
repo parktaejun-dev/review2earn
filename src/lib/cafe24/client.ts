@@ -16,7 +16,7 @@ export class Cafe24ApiClient {
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2024-03-01',
+        'X-Cafe24-Api-Version': '2025-09-01',
         ...options?.headers,
       },
     })
