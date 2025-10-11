@@ -78,7 +78,7 @@ export default function Dashboard() {
       const response = await fetch('/api/webhooks/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mall_id: mallId }),
+        body: JSON.stringify({ mallId }),
       })
 
       const result = await response.json()
