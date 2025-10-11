@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [isConnected, setIsConnected] = useState<boolean>(false)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
+  const [webhookLoading, setWebhookLoading] = useState<boolean>(false)
+  const [webhookMessage, setWebhookMessage] = useState<string>('')
 
   useEffect(() => {
     const savedMallId = localStorage.getItem('user_mall_id')
@@ -63,6 +65,36 @@ export default function Dashboard() {
       console.error('Failed to load stats:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const registerWebhooks = async () => {
+    if (!mallId) return
+
+    try {
+      setWebhookLoading(true)
+      setWebhookMessage('')
+
+      const response = await fetch('/api/webhooks/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mall_id: mallId }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setWebhookMessage('✅ Webhook 등록 성공!')
+        // 3초 후 메시지 제거
+        setTimeout(() => setWebhookMessage(''), 3000)
+      } else {
+        setWebhookMessage(`❌ Webhook 등록 실패: ${result.error || '알 수 없는 오류'}`)
+      }
+    } catch (error) {
+      console.error('Webhook registration error:', error)
+      setWebhookMessage('❌ Webhook 등록 중 오류가 발생했습니다')
+    } finally {
+      setWebhookLoading(false)
     }
   }
 
@@ -125,16 +157,43 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* 연결 상태 */}
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium">✅ 카페24 연동 성공!</h3>
+              </div>
             </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium">✅ 카페24 연동 성공!</h3>
-            </div>
+            
+            {/* Webhook 등록 버튼 */}
+            <button
+              onClick={registerWebhooks}
+              disabled={webhookLoading}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {webhookLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  등록 중...
+                </>
+              ) : (
+                <>
+                  🔔 Webhook 등록
+                </>
+              )}
+            </button>
           </div>
+          
+          {/* Webhook 메시지 */}
+          {webhookMessage && (
+            <div className="mt-2 text-sm">
+              {webhookMessage}
+            </div>
+          )}
         </div>
 
         {loading ? (
