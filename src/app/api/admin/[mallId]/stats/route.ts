@@ -5,10 +5,11 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: Request,
-  { params }: { params: { mallId: string } }
+  { params }: { params: Promise<{ mallId: string }> }
 ) {
   try {
-    const { mallId } = params;
+    // ✅ params를 await으로 처리
+    const { mallId } = await params;
 
     const totalReviews = await prisma.review.count({
       where: { mallId },
