@@ -1,9 +1,5 @@
 import { CAFE24_CONFIG } from "@/lib/cafe24-config";
 import { prisma } from "@/lib/prisma";
-// 📂 src/app/api/cafe24/scripttags/register/route.ts
-// Review2Earn v6.0 - ScriptTag Registration
-// Widget 스크립트를 동적으로 등록
-
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -30,7 +26,6 @@ export async function POST(request: Request) {
 
     console.log('✅ Store found:', mallId);
 
-    // ✅ 환경변수에서 동적으로 URL 생성
     const widgetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/widget.js`;
     
     console.log('🔗 Widget URL:', widgetUrl);
@@ -47,7 +42,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           request: {
             shop_no: parseInt(process.env.DEFAULT_SHOP_NO || "1"),
-            src: widgetUrl,  // ✅ 환경변수 사용
+            src: widgetUrl,
             display_location: ['PRODUCT_DETAIL'],  // ✅ 수정됨!
             exclude_path: [],
             skin_no: [parseInt(process.env.DEFAULT_SKIN_NO || "1")],
@@ -72,7 +67,7 @@ export async function POST(request: Request) {
       await prisma.mallSettings.update({
         where: { mallId },
         data: {
-          scriptTagNo: data.scripttag.script_no,
+          scriptTagNo: parseInt(data.scripttag.script_no),  // ✅ parseInt 추가!
         },
       });
       console.log('✅ ScriptTag number saved:', data.scripttag.script_no);
@@ -81,7 +76,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       scriptTag: data.scripttag,
-      widgetUrl,  // ✅ 응답에 URL 포함
+      widgetUrl,
     });
 
   } catch (error) {
