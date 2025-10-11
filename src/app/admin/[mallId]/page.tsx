@@ -1,17 +1,15 @@
-// app/admin/[mallId]/page.tsx
-// 기존 코드를 수정
-
+// src/app/admin/[mallId]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 interface DashboardStats {
-  totalOrders: number;      // ✅ 총 주문 수
-  totalReviews: number;     // ✅ 총 리뷰 수
-  totalMembers: number;     // ✅ R2E 회원 수
-  totalRewards: number;     // ✅ 총 적립금
-  activeProducts: number;   // ✅ 활성 상품 수
+  totalOrders: number;
+  totalReviews: number;
+  totalMembers: number;
+  totalRewards: number;
+  activeProducts: number;
 }
 
 export default function AdminDashboard() {
@@ -60,7 +58,7 @@ export default function AdminDashboard() {
 
         {/* 통계 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* 상품 수 (실제론 주문 수) */}
+          {/* 상품 수 */}
           <div className="bg-white rounded-lg p-6 shadow">
             <div className="flex items-center justify-between">
               <div>
