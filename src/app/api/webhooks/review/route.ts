@@ -89,31 +89,64 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 🆕 v5.2: Cafe24 API로 고객 이메일 조회
+    // 🆕 v5.2: Cafe24 API로 고객 이메일 조회 (상세 로그 포함)
     let memberEmail: string | null = null
+    
+    console.log('🔍 Checking accessToken:', {
+      hasToken: !!mallSettings.accessToken,
+      tokenLength: mallSettings.accessToken?.length,
+      tokenPreview: mallSettings.accessToken?.substring(0, 10) + '***',
+      tokenExpiresAt: mallSettings.tokenExpiresAt,
+    })
     
     if (mallSettings.accessToken) {
       try {
-        const response = await fetch(
-          `https://${mallId}.cafe24api.com/api/v2/admin/customers/${member_id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${mallSettings.accessToken}`,
-              'Content-Type': 'application/json',
-              'X-Cafe24-Api-Version': '2024-03-01',
-            },
-          }
-        )
+        const apiUrl = `https://${mallId}.cafe24api.com/api/v2/admin/customers/${member_id}`
+        console.log('🌐 Calling Cafe24 API:', apiUrl)
+        
+        const response = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${mallSettings.accessToken}`,
+            'Content-Type': 'application/json',
+            'X-Cafe24-Api-Version': '2024-03-01',
+          },
+        })
+
+        console.log('📡 Cafe24 API response status:', response.status)
 
         if (response.ok) {
           const data = await response.json()
+          console.log('📦 Cafe24 API response data:', JSON.stringify(data, null, 2))
+          
           memberEmail = data.customer?.email || null
-          console.log('✅ Customer email retrieved:', memberEmail)
+          
+          if (memberEmail) {
+            console.log('✅ Customer email retrieved:', memberEmail)
+          } else {
+            console.warn('⚠️ No email in Cafe24 response')
+          }
+        } else {
+          const errorText = await response.text()
+          console.error('❌ Cafe24 API error:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+          })
         }
       } catch (error) {
-        console.error('⚠️ Failed to get customer email:', error)
-        // 이메일 조회 실패해도 리뷰는 등록
+        console.error('⚠️ Failed to get customer email:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        })
       }
+    } else {
+      console.warn('⚠️ No accessToken available for mall:', mallId)
+    }
+    
+    // 🆕 이메일이 없으면 임시 이메일 생성
+    if (!memberEmail) {
+      memberEmail = `${member_id}@${mallId}.temp`
+      console.log('⚠️ Using temporary email:', memberEmail)
     }
 
     // 추천 코드 생성 (기존 로직 유지)
@@ -174,12 +207,19 @@ export async function POST(request: NextRequest) {
 
         // TODO: 계정 활성화 이메일 발송
         console.log('📧 TODO: Send activation email to', memberEmail)
+      } else {
+        console.log('ℹ️ R2E account already exists:', memberEmail)
       }
 
       // 리뷰에 R2E 계정 연결
       await prisma.review.update({
         where: { id: review.id },
         data: { r2eUserId: r2eAccount.id },
+      })
+      
+      console.log('🔗 Review linked to R2E account:', {
+        reviewId: review.id,
+        r2eAccountId: r2eAccount.id,
       })
     }
 
@@ -193,13 +233,17 @@ export async function POST(request: NextRequest) {
         reviewId: review.id,
         referralCode: review.referralCode,
         referralLink,
-        r2eAccountLinked: !!memberEmail,
+        r2eAccountLinked: !!memberEmail && !memberEmail.includes('.temp'),
         message: 'Review registered successfully for Review2Earn program',
       },
     })
 
   } catch (error) {
-    console.error('❌ Review webhook error:', error)
+    console.error('❌ Review webhook error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    
     return NextResponse.json(
       {
         success: false,
@@ -213,7 +257,11 @@ export async function POST(request: NextRequest) {
 
 // Webhook 검증용 GET 엔드포인트
 export async function GET() {
-  return NextResponse.json({ status: 'ok', version: 'v5.2' })
+  return NextResponse.json({ 
+    status: 'ok', 
+    version: 'v5.2',
+    timestamp: new Date().toISOString(),
+  })
 }
 
 // 추천 코드 생성 함수 (기존 로직 유지)
