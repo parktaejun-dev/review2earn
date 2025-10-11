@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 
 import { NextResponse } from 'next/server';
 
-
 export async function POST(request: Request) {
   try {
     const { mallId } = await request.json();
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
           request: {
             shop_no: parseInt(process.env.DEFAULT_SHOP_NO || "1"),
             src: widgetUrl,  // ✅ 환경변수 사용
-            display_location: ['FRONT_PRODUCT_DETAIL'],
+            display_location: ['PRODUCT_DETAIL'],  // ✅ 수정됨!
             exclude_path: [],
             skin_no: [parseInt(process.env.DEFAULT_SKIN_NO || "1")],
           },
