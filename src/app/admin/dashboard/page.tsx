@@ -1,145 +1,160 @@
-'use client';
+// src/app/admin/dashboard/page.tsx (수정)
+'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'
 
 interface ApiTestResult {
-  success: boolean;
-  message: string;
-  mall_id?: string;
-  products_count?: number;
-  sample_data?: Record<string, unknown>;
+  success: boolean
+  message: string
+  mall_id?: string
+  products_count?: number
+  sample_data?: Record<string, unknown>
 }
 
 export default function Dashboard() {
-  const [mallId, setMallId] = useState<string>('');
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [apiTestResult, setApiTestResult] = useState<ApiTestResult | null>(null);
-  const [scriptStatus, setScriptStatus] = useState<'checking' | 'installed' | 'not_installed' | 'installing' | 'removing'>('checking');
-  const [scriptMessage, setScriptMessage] = useState('');
+  const [mallId, setMallId] = useState<string>('')
+  const [isConnected, setIsConnected] = useState<boolean>(false)
+  const [apiTestResult, setApiTestResult] = useState<ApiTestResult | null>(null)
+  const [scriptStatus, setScriptStatus] = useState<'checking' | 'installed' | 'not_installed' | 'installing' | 'removing'>('checking')
+  const [scriptMessage, setScriptMessage] = useState('')
 
   useEffect(() => {
-    // 쿠키에서 mall_id 확인
-    const cookieMallId = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('cafe24_mall_id='))
-      ?.split('=')[1];
+    // 🆕 localStorage에서 mall_id 확인 (쿠키 대신)
+    const savedMallId = localStorage.getItem('user_mall_id')
+    const isAlreadyConnected = localStorage.getItem('is_connected')
     
-    if (cookieMallId) {
-      setMallId(cookieMallId);
-      setIsConnected(true);
-      checkScriptStatus();
-      // ⭐ 자동 API 테스트 제거 - 사용자가 수동으로만 실행
+    if (savedMallId && isAlreadyConnected === 'true') {
+      setMallId(savedMallId)
+      setIsConnected(true)
+      checkScriptStatus()
+    } else {
+      // 쿠키 확인 (하위 호환성)
+      const cookieMallId = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('cafe24_mall_id='))
+        ?.split('=')[1]
+      
+      if (cookieMallId) {
+        setMallId(cookieMallId)
+        setIsConnected(true)
+        // localStorage에도 저장
+        localStorage.setItem('user_mall_id', cookieMallId)
+        localStorage.setItem('is_connected', 'true')
+        checkScriptStatus()
+      }
     }
-  }, []);
+  }, [])
 
-  // 스크립트 상태 확인
   const checkScriptStatus = async () => {
     try {
       const response = await fetch('/api/scripttags/status', {
         method: 'GET'
-      });
+      })
       
-      const result = await response.json();
+      const result = await response.json()
       
       if (result.success) {
-        setScriptStatus(result.installed ? 'installed' : 'not_installed');
-        setScriptMessage(result.message);
+        setScriptStatus(result.installed ? 'installed' : 'not_installed')
+        setScriptMessage(result.message)
       }
     } catch (error) {
-      console.error('스크립트 상태 확인 오류:', error);
-      setScriptStatus('not_installed');
+      console.error('스크립트 상태 확인 오류:', error)
+      setScriptStatus('not_installed')
     }
-  };
+  }
 
-  // ⭐ API 테스트 함수 - 경로 수정
   const handleApiTest = async () => {
     try {
-      setApiTestResult(null); // 이전 결과 초기화
+      setApiTestResult(null)
       
-      const response = await fetch('/api/test-connection', {  // ✅ 올바른 경로
+      const response = await fetch('/api/test-connection', {
         method: 'POST'
-      });
+      })
       
-      const result = await response.json();
-      setApiTestResult(result);
+      const result = await response.json()
+      setApiTestResult(result)
     } catch (error) {
-      console.error('API 테스트 오류:', error);
+      console.error('API 테스트 오류:', error)
       setApiTestResult({
         success: false,
         message: 'API 테스트 중 오류가 발생했습니다'
-      });
+      })
     }
-  };
+  }
 
-  // 재연결 함수 추가
   const handleReconnect = () => {
-    // 쿠키 삭제 후 재연결
-    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'cafe24_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    // 🆕 localStorage + 쿠키 모두 삭제
+    localStorage.removeItem('user_mall_id')
+    localStorage.removeItem('is_connected')
     
-    window.location.href = '/';
-  };
+    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    document.cookie = 'cafe24_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    document.cookie = 'oauth_completed=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    
+    window.location.href = '/'
+  }
 
-  // 스크립트 설치 함수
   const handleInstallScript = async () => {
-    setScriptStatus('installing');
-    setScriptMessage('스크립트를 설치하는 중입니다...');
+    setScriptStatus('installing')
+    setScriptMessage('스크립트를 설치하는 중입니다...')
 
     try {
       const response = await fetch('/api/scripttags/install', {
         method: 'POST'
-      });
+      })
       
-      const result = await response.json();
+      const result = await response.json()
       
       if (result.success) {
-        setScriptStatus('installed');
-        setScriptMessage(result.message);
+        setScriptStatus('installed')
+        setScriptMessage(result.message)
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message)
       }
     } catch (error) {
-      console.error('스크립트 설치 오류:', error);
-      setScriptMessage('스크립트 설치 중 오류가 발생했습니다');
-      setScriptStatus('not_installed');
+      console.error('스크립트 설치 오류:', error)
+      setScriptMessage('스크립트 설치 중 오류가 발생했습니다')
+      setScriptStatus('not_installed')
     }
-  };
+  }
 
-  // 스크립트 제거 함수
   const handleRemoveScript = async () => {
-    if (!confirm('리뷰투언 스크립트를 제거하시겠습니까?')) return;
+    if (!confirm('리뷰투언 스크립트를 제거하시겠습니까?')) return
 
-    setScriptStatus('removing');
-    setScriptMessage('스크립트를 제거하는 중입니다...');
+    setScriptStatus('removing')
+    setScriptMessage('스크립트를 제거하는 중입니다...')
 
     try {
       const response = await fetch('/api/scripttags/uninstall', {
         method: 'DELETE'
-      });
+      })
       
-      const result = await response.json();
+      const result = await response.json()
       
       if (result.success) {
-        setScriptStatus('not_installed');
-        setScriptMessage(result.message);
+        setScriptStatus('not_installed')
+        setScriptMessage(result.message)
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message)
       }
     } catch (error) {
-      console.error('스크립트 제거 오류:', error);
-      setScriptMessage('스크립트 제거 중 오류가 발생했습니다');
+      console.error('스크립트 제거 오류:', error)
+      setScriptMessage('스크립트 제거 중 오류가 발생했습니다')
     }
-  };
+  }
 
   const handleLogout = () => {
-    // 쿠키 삭제
-    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    // 🆕 localStorage + 쿠키 모두 삭제
+    localStorage.removeItem('user_mall_id')
+    localStorage.removeItem('is_connected')
     
-    // 홈페이지로 리다이렉트
-    window.location.href = '/';
-  };
+    document.cookie = 'cafe24_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    document.cookie = 'cafe24_mall_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    document.cookie = 'oauth_completed=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    
+    window.location.href = '/'
+  }
 
   if (!isConnected) {
     return (
@@ -161,7 +176,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -172,13 +187,12 @@ export default function Dashboard() {
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <h1 className="text-3xl font-bold text-gray-900">
-                🎯 리뷰투언 관리자 대시보드
+                🎯 Review2Earn 관리자
               </h1>
               <span className="ml-4 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                 {mallId}
               </span>
             </div>
-            {/* ⭐ 버튼 2개로 수정 */}
             <div className="flex gap-2">
               <button
                 onClick={handleReconnect}
@@ -216,23 +230,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 토큰 만료 경고 추가 */}
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg mb-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium">⚠️ 토큰 만료 가능성</h3>
-              <div className="mt-2 text-sm">
-                <p>API 호출 시 토큰이 만료되면 자동으로 갱신됩니다. 실패 시 &quot;다시 연결하기&quot; 버튼을 사용해주세요.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* 통계 카드들 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -247,7 +244,7 @@ export default function Dashboard() {
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">상품 수</dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {apiTestResult?.products_count || '2'}
+                      {apiTestResult?.products_count || '-'}
                     </dd>
                   </dl>
                 </div>
@@ -260,12 +257,12 @@ export default function Dashboard() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm">🎫</span>
+                    <span className="text-white text-sm">📝</span>
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">발급된 쿠폰</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">총 리뷰</dt>
                     <dd className="text-lg font-medium text-gray-900">0</dd>
                   </dl>
                 </div>
@@ -283,7 +280,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">총 적립금 지급</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">총 적립금</dt>
                     <dd className="text-lg font-medium text-gray-900">0원</dd>
                   </dl>
                 </div>
@@ -350,11 +347,6 @@ export default function Dashboard() {
               </button>
             )}
           </div>
-
-          <div className="mt-4 text-sm text-gray-500">
-            <p>💡 스크립트 설치 후 쇼핑몰의 상품 리뷰 작성 페이지에서 버튼을 확인할 수 있습니다.</p>
-            <p>🔗 테스트 URL: <span className="font-mono">https://{mallId}.cafe24.com/board/product/write.html?board_no=4&product_no=12</span></p>
-          </div>
         </div>
 
         {/* API 연결 테스트 */}
@@ -385,5 +377,5 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
-  );
+  )
 }
